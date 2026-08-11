@@ -86,7 +86,6 @@
     .dropzone{border:2px dashed var(--border);border-radius:14px;padding:14px;text-align:center;background:#fff}
     .dropzone.drag{border-color:var(--brand);background:#fff5f5}
     .dz-title{font-size:14px;font-weight:700;color:var(--text)}
-    #preview,#preview2{max-width:100%;max-height:220px;border-radius:12px;display:none;margin-top:8px;border:1px solid var(--border);box-shadow:var(--shadow)}
     .muted{color:var(--muted);font-size:12px}
     .msg{min-height:20px}
     .ok{color:var(--ok)} .err{color:var(--err)}
@@ -167,37 +166,13 @@
           </select>
         </label>
 
-        <div class="dropzone" id="dz">
-          <div class="dz-title">Photo du match (facultatif)</div>
-          <input type="file" name="photo" id="photo" accept="image/*">
-          <div class="muted">Glissez une image, prenez une photo ou choisissez depuis la galerie.</div>
-          <img id="preview" alt="Aperçu photo" />
-        </div>
-
-        <input type="hidden" name="form_secret" id="form_secret" value="CHANGE-MOI">
-
         <div class="actions">
           <button type="submit" id="btn">Envoyer score</button>
           <div class="msg muted" id="msg" role="status" aria-live="polite"></div>
         </div>
       </form>
 
-      <!-- PHOTO FINALE -->
-      <form id="fPhoto" class="mt" hidden>
-        <h3>Photo supplémentaire (match terminé)</h3>
-        <div class="dropzone" id="dz2">
-          <div class="dz-title">Ajouter une photo</div>
-          <input type="file" name="photo_finale" id="photo2" accept="image/*">
-          <div class="muted">Cette photo partira vers l’archivage (Dropbox).</div>
-          <img id="preview2" alt="Aperçu photo" />
-        </div>
-        <div class="actions">
-          <button type="submit" id="btn2">Envoyer photo</button>
-          <div class="msg muted" id="msg2" role="status" aria-live="polite"></div>
-        </div>
-      </form>
-
-      <footer class="muted">Astuce : créez un QR code vers cette page. La liste affiche automatiquement les matchs de J-5 à J+2.</footer>
+      <footer class="muted">Astuce : créez un QR code vers cette page. La liste affiche automatiquement les matchs de J-5 à J+2. Pour ajouter une photo de fin de match, utilisez le formulaire dédié.</footer>
     </div>
   </div>
 
@@ -210,9 +185,11 @@
     const CONFIG = {
       clubName:'Sporting Villette',
       logoUrl:'logo.png',
-      webhookScoreUrl:'https://hook.eu2.make.com/12s2f2licqusjj1xiw3p3tulrfnd5dgw',
-      webhookPhotoUrl:'https://hook.eu2.make.com/40xiygzru2pfcgwooofj7ewouwqqddsi',
-      maxSizeMB:10, renameUploads:true,
+      // Même Web App Apps Script que la synchro des matchs FFHB (voir CLAUDE.md du repo
+      // sv-planning-entrainements, apps-script/Code.gs). L'URL n'est pas sensible en
+      // elle-même (seules les actions d'écriture sont protégées par webhookSecret).
+      webhookUrl:'https://script.google.com/macros/s/AKfycbzA8_vH6hAwZl3aBOxEtL4sKqxi10mhY6Tw0dDRLU-SHszHHui4GXSR04GX8VV15oQC/exec',
+      webhookSecret:'CHANGE-MOI',
       gsheetCsvUrl:'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvskuueB25qKj0hbDWjFPomFdhfWRduUsNLp6Kv-za4t4oXcbbLsLrNsjwIt0ZH7C9B75pYBGDJfQu/pub?gid=0&single=true&output=csv',
       fields:{
         match_id:'Code Gesthand', date:'Date', heure:'Heure',
@@ -233,8 +210,6 @@
 
     // --- utils
     function norm(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
-    function slugify(s){return String(s||'').trim().replace(/\s+/g,'-').replace(/[^\w\-]+/g,'').toUpperCase();}
-    function extFrom(t,f){if(!t)return f||'jpg'; if(t==='image/jpeg')return'jpg'; if(t==='image/png')return'png'; if(t==='image/webp')return'webp'; if(t==='image/heic'||t==='image/heif')return'heic'; return f||'jpg';}
     function isUrl(u){try{new URL(u);return true;}catch{return false;}}
     function parseDateFR(v){if(!v)return null; const m=String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m){const d=m[1].padStart(2,'0'),mo=m[2].padStart(2,'0'),y=m[3]; return new Date(`${y}-${mo}-${d}T00:00:00`);} const d=new Date(v); return isNaN(d)?null:d;}
     function parseDateTimeFR(ds,ts){const d=parseDateFR(ds); if(!d)return null; const [h='00',m='00']=String(ts||'00:00').split(':'); const dt=new Date(d); dt.setHours(parseInt(h,10)||0,parseInt(m,10)||0,0,0); return dt;}
@@ -486,7 +461,6 @@
       document.getElementById('match_id').value='';
       setTeamLabels('domicile','extérieur'); statutEl.value='';
       etatEl.value='termine'; toggleTempsByEtat();
-      document.getElementById('fPhoto').hidden=true;
     });
 
     async function lookupTeamsById(id){
@@ -519,20 +493,6 @@
 
     loadMatches();
 
-    // Drag & drop + preview
-    ;(function dz1(){const dz=document.getElementById('dz'), file=document.getElementById('photo'), prev=document.getElementById('preview');
-      ['dragenter','dragover'].forEach(evt=>dz.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();dz.classList.add('drag')}));
-      ['dragleave','drop'].forEach(evt=>dz.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();dz.classList.remove('drag')}));
-      dz.addEventListener('drop',e=>{ if(e.dataTransfer.files?.length){ file.files=e.dataTransfer.files; file.dispatchEvent(new Event('change')); } });
-      file.addEventListener('change',()=>{ const f=file.files[0]; if(!f){ prev.style.display='none'; prev.src=''; return; } prev.src=URL.createObjectURL(f); prev.style.display='block'; });
-    })();
-    ;(function dz2(){const dz=document.getElementById('dz2'), file=document.getElementById('photo2'), prev=document.getElementById('preview2');
-      ['dragenter','dragover'].forEach(evt=>dz.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();dz.classList.add('drag')}));
-      ['dragleave','drop'].forEach(evt=>dz.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();dz.classList.remove('drag')}));
-      dz.addEventListener('drop',e=>{ if(e.dataTransfer.files?.length){ file.files=e.dataTransfer.files; file.dispatchEvent(new Event('change')); } });
-      file.addEventListener('change',()=>{ const f=file.files[0]; if(!f){ prev.style.display='none'; prev.src=''; return; } prev.src=URL.createObjectURL(f); prev.style.display='block'; });
-    })();
-
     // submit score (statut unifié + garde-fou minute)
     const form=document.getElementById('f'), msg=document.getElementById('msg'), btn=document.getElementById('btn');
     form.addEventListener('submit', async (e)=>{
@@ -545,24 +505,12 @@
       const etat=document.getElementById('etat_match').value;
       const tmin=document.getElementById('temps_jeu').value.trim();
 
-      // fichiers
-      const inputFile=document.getElementById('photo'); const f=inputFile.files[0];
-      if (f && f.size > CONFIG.maxSizeMB*1024*1024){ msg.textContent=`Fichier trop lourd (max ${CONFIG.maxSizeMB} Mo).`; msg.className='msg err'; return; }
-      if (f && CONFIG.renameUploads){ const ext=extFrom(f.type, f.name.split('.').pop()); const renamed=new File([f], `${slugify(id)}-${Date.now()}.${ext}`, {type:f.type||'image/jpeg'}); const dt=new DataTransfer(); dt.items.add(renamed); document.getElementById('photo').files=dt.files; }
-
-      const fd=new FormData(form);
-      // Étiquettes utiles côté Make (pas obligatoire si votre mapping les ignore)
-      fd.append('equipe1_label', (labelDom.textContent||'').replace(/^Score\s+/,'')); 
-      fd.append('equipe2_label', (labelExt.textContent||'').replace(/^Score\s+/,'')); 
-
       // ----- STATUT UNIFIÉ -----
-      fd.delete('statut'); // on n'envoie jamais "statut"
       let unified = '';
 
       if (etat==='en_cours'){
         if(!tmin){ msg.textContent='Indiquez le temps de jeu (minutes).'; msg.className='msg err'; return; } // garde-fou
         unified = `${parseInt(tmin,10)}e`;
-        fd.append('en_cours','true'); // indicateur optionnel
       } else {
         const s1=parseInt(sd,10), s2=parseInt(se,10);
         if(!Number.isNaN(s1) && !Number.isNaN(s2)){
@@ -572,38 +520,27 @@
           unified = 'Terminé';
         }
       }
-      fd.set('WinLose', unified);
+
+      const fd=new FormData();
+      fd.append('action','add_score');
+      fd.append('secret', CONFIG.webhookSecret);
+      fd.append('match_id', id);
+      fd.append('score_dom', sd);
+      fd.append('score_ext', se);
+      fd.append('winlose', unified);
 
       try{
         btn.disabled=true; btn.textContent='Envoi…'; msg.textContent='Transmission sécurisée…'; msg.className='msg muted';
-        const res=await fetch(CONFIG.webhookScoreUrl,{method:'POST', body:fd});
-        if(!res.ok) throw new Error('Webhook score non joignable');
-        form.reset(); document.getElementById('preview').style.display='none';
+        const res=await fetch(CONFIG.webhookUrl,{method:'POST', body:fd});
+        if(!res.ok) throw new Error('Web App score non joignable');
+        const data=await res.json();
+        if(!data.ok) throw new Error(data.error||'Erreur Web App');
+        form.reset();
         selectedBox.hidden=true; idLine.style.display='';
         document.getElementById('temps_jeu').value=''; document.getElementById('etat_match').value='termine'; 
         msg.textContent='Merci, score envoyé !'; msg.className='msg ok';
       }catch(err){ console.error(err); msg.textContent='Erreur d\'envoi. Vérifiez la connexion et réessayez.'; msg.className='msg err'; }
       finally{ btn.disabled=false; btn.textContent='Envoyer score'; }
-    });
-
-    // photo finale
-    const form2=document.getElementById('fPhoto'), msg2=document.getElementById('msg2'), btn2=document.getElementById('btn2');
-    form2.addEventListener('submit', async (e)=>{
-      e.preventDefault(); msg2.textContent='';
-      const file=document.getElementById('photo2').files[0];
-      if(!file){ msg2.textContent='Choisissez une photo.'; msg2.className='msg err'; return; }
-      if (file && file.size > CONFIG.maxSizeMB*1024*1024){ msg2.textContent=`Fichier trop lourd (max ${CONFIG.maxSizeMB} Mo).`; msg2.className='msg err'; return; }
-      if (file && CONFIG.renameUploads){ const ext=extFrom(file.type, file.name.split('.').pop()); const renamed=new File([file], `${slugify(form2.dataset.mid||'MATCH')}-FINAL-${Date.now()}.${ext}`, {type:file.type||'image/jpeg'}); const dt=new DataTransfer(); dt.items.add(renamed); document.getElementById('photo2').files=dt.files; }
-      const fd=new FormData();
-      fd.append('match_id', form2.dataset.mid||''); fd.append('equipe1_label', form2.dataset.e1||''); fd.append('equipe2_label', form2.dataset.e2||''); fd.append('meta', form2.dataset.meta||''); fd.append('photo_finale', document.getElementById('photo2').files[0]);
-      try{
-        btn2.disabled=true; btn2.textContent='Envoi…'; msg2.textContent='Transmission sécurisée…'; msg2.className='msg muted';
-        const res=await fetch(CONFIG.webhookPhotoUrl,{method:'POST', body:fd});
-        if(!res.ok) throw new Error('Webhook photo non joignable');
-        form2.reset(); document.getElementById('preview2').style.display='none';
-        msg2.textContent='Photo envoyée pour archivage !'; msg2.className='msg ok';
-      }catch(err){ console.error(err); msg2.textContent='Erreur d\'envoi. Réessayez.'; msg2.className='msg err'; }
-      finally{ btn2.disabled=false; btn2.textContent='Envoyer photo'; }
     });
 
     // Lightbox helpers
