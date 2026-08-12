@@ -36,13 +36,13 @@
     .match-card{width:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--card);cursor:pointer}
     .match-card:active{transform:scale(.99)}
     .time-box{display:flex;align-items:center;justify-content:center;width:64px;padding:10px;border-radius:12px;background:#e8ecff;border:1px solid #ced6ff;color:var(--deep);font-weight:900;letter-spacing:.2px}
-    /* colonne heure + code */
+    /* colonne heure + cadenas éventuel */
     .time-col{display:flex;flex-direction:column;align-items:center;gap:6px}
-    /* pastille du code match sous l'heure */
-    .code-chip{
-      font-size:11px;font-weight:800;letter-spacing:.2px;
-      color:#2b3447;background:#eef1f6;border:1px solid var(--border);
-      border-radius:999px;padding:4px 8px;line-height:1
+    /* cadenas sous l'heure : score déjà confirmé par la FFHB, saisie manuelle verrouillée */
+    .lock-chip{
+      font-size:13px;line-height:1;
+      color:#6d4e00;background:#fff1cf;border:1px solid var(--border);
+      border-radius:999px;padding:4px 8px;
     }
     .teams{display:grid;gap:6px;min-width:0}
     .team-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;min-width:0}
@@ -222,7 +222,7 @@
         categorie:'Catégorie', genre:'Genre', championnat:'Championnat',
         equipe1:'Eq1', equipe1x:'Eq1X', equipe2:'Eq2', equipe2x:'Eq2X',
         eq1score:'Eq1Score', eq2score:'Eq2Score', winlose:'WinLose',
-        gymnase:'Gymnase', ville:'Ville', photo:'PhotoEq'
+        gymnase:'Gymnase', ville:'Ville', photo:'PhotoEq', scoreSource:'Score Source'
       },
       clubAliases:['Sporting Villette','Villette Genas','Entente Villette Genas','Est Lyonnais','Lyon Est Handball'],
       liveThresholdMin:90
@@ -283,7 +283,9 @@
             equipe1:e1label, equipe2:e2label,
             eq1score:r[idx[L.eq1score]], eq2score:r[idx[L.eq2score]],
             winlose:r[idx[L.winlose]], gymnase:r[idx[L.gymnase]], ville:r[idx[L.ville]],
-            photo:isUrl(photo)?photo:''
+            photo:isUrl(photo)?photo:'',
+            // Score confirmé par le scraper FFHB -> saisie manuelle verrouillée (cf Code.gs).
+            locked:(r[idx[L.scoreSource]]||'').trim().toLowerCase()==='ffhb'
           };
         }).filter(x=>x&&x.match_id);
 
@@ -401,7 +403,7 @@
           card.innerHTML=`
             <div class="time-col">
               <div class="time-box">${fmtTime(m._date)}</div>
-              <div class="code-chip">${m.match_id}</div>
+              ${m.locked ? `<div class="lock-chip" title="Score confirmé par la FFHB — non modifiable">🔒</div>` : ``}
             </div>
             <div class="teams">
               <div class="team-row">
@@ -503,6 +505,17 @@
     document.getElementById('temps_plus').addEventListener('click', ()=>{ setTemps((parseInt(tempsEl.value,10)||0)+1); scheduleSend(); });
     document.getElementById('temps_minus').addEventListener('click', ()=>{ setTemps((parseInt(tempsEl.value,10)||1)-1); scheduleSend(); });
 
+    // Verrou : score déjà confirmé par la FFHB (Score Source='ffhb' côté sheet, cf Code.gs)
+    // -> saisie manuelle désactivée. Le serveur refuse aussi l'écriture dans ce cas (verrou
+    // appliqué ici en plus pour éviter un aller-retour réseau inutile et confus).
+    let currentLocked=false;
+    const LOCK_STEP_IDS=['dom_plus','dom_minus','ext_plus','ext_minus','temps_plus','temps_minus'];
+    function setLocked(locked){
+      currentLocked=locked;
+      LOCK_STEP_IDS.forEach(id=>{ document.getElementById(id).disabled=locked; });
+      etatEl.disabled=locked;
+    }
+
     function selectMatch(m){
       selTeams.textContent=`${(m.equipe1||'').trim()} vs ${(m.equipe2||'').trim()}`;
       selMeta.textContent=[fmtDate(m._date), fmtTime(m._date), (m.categorie||''), (m.championnat||''), (m.ville||'')].filter(Boolean).join(' · ');
@@ -521,7 +534,10 @@
       const minuteMatch = m.winlose && String(m.winlose).match(/^(\d{1,2})\s*e$/i);
       if (minuteMatch){ etatEl.value='en_cours'; statutEl.value='En cours'; toggleTempsByEtat(); setTemps(parseInt(minuteMatch[1],10)); }
       else { etatEl.value='termine'; computeResult(); toggleTempsByEtat(); }
-      msg.textContent='Match sélectionné — le score s\'envoie automatiquement à chaque +/-.'; msg.className='msg muted';
+
+      setLocked(!!m.locked);
+      if (m.locked){ msg.textContent='🔒 Score confirmé par la FFHB — non modifiable ici.'; msg.className='msg muted'; }
+      else { msg.textContent='Match sélectionné — le score s\'envoie automatiquement à chaque +/-.'; msg.className='msg muted'; }
       document.getElementById('f').scrollIntoView({behavior:'smooth',block:'start'});
     }
 
@@ -531,6 +547,7 @@
       setTeamLabels('domicile','extérieur'); statutEl.value='';
       setScore('dom',0); setScore('ext',0);
       etatEl.value='termine'; toggleTempsByEtat();
+      setLocked(false);
       msg.textContent='Sélectionnez une rencontre pour commencer — le score s\'envoie automatiquement à chaque +/-.'; msg.className='msg muted';
     });
 
@@ -551,6 +568,11 @@
           setScore('dom', Number.isFinite(s1)?s1:0);
           setScore('ext', Number.isFinite(s2)?s2:0);
           computeResult();
+          const sourceI=c.idx[(F.scoreSource||'')];
+          const locked=(row[sourceI]||'').trim().toLowerCase()==='ffhb';
+          setLocked(locked);
+          msg.textContent = locked ? '🔒 Score confirmé par la FFHB — non modifiable ici.' : 'Match trouvé — le score s\'envoie automatiquement à chaque +/-.';
+          msg.className='msg muted';
         }
       }catch{}
     }
@@ -579,6 +601,7 @@
     function scheduleSend(){
       const id=document.getElementById('match_id').value.trim();
       if(!id) return; // aucun match sélectionné, rien à envoyer
+      if(currentLocked) return; // score déjà confirmé FFHB, verrouillé (filet de sécurité)
       clearTimeout(sendTimer);
       msg.textContent='Modifié…'; msg.className='msg muted';
       sendTimer=setTimeout(doSend, 600);
