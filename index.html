@@ -15,7 +15,7 @@
     }
     @media (prefers-color-scheme: dark){
       :root{ --bg:#0d1117; --card:#0f141b; --text:#f3f5f8; --muted:#c5ccd6; --border:#2a3748; --chip:#172231; --section:#121926; --ok:#63d39a; --err:#ff6b6b; }
-      input,select,button{background:#0f141b;color:var(--text)}
+      input,select,button,textarea{background:#0f141b;color:var(--text)}
     }
     html,body{height:100%}
     body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -69,21 +69,24 @@
     .thumb-wrap{display:flex;align-items:center;justify-content:center}
     .thumb-btn{all:unset;cursor:zoom-in}
 
-    .selected{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:10px 0 8px;padding:12px 14px;border:1px dashed var(--border);border-radius:14px;background:#fff}
-    .sel-teams{font-weight:900}
     .mini{padding:9px 12px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;border:none;font-weight:800}
+    .back-btn{margin-bottom:10px}
+
+    .match-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin:10px 0 8px;padding:12px 14px;border:1px dashed var(--border);border-radius:14px}
+    .sel-teams{font-weight:900;font-size:17px}
 
     form{display:grid;gap:12px;margin-top:8px}
     label{display:grid;gap:6px;font-size:15px;color:var(--text)}
-    input,select,button{font-size:18px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:#fff;color:var(--text)}
-    input::placeholder{color:#5a6577}
+    input,select,button,textarea{font-size:18px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:#fff;color:var(--text)}
+    textarea{font-family:inherit;resize:vertical}
+    input::placeholder,textarea::placeholder{color:#5a6577}
     input[type="file"]{padding:10px}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .row.one{grid-template-columns:1fr}
     .actions{display:grid;gap:8px}
     button{cursor:pointer;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;border:none;font-weight:800;border-radius:12px}
-    button[disabled]{opacity:.6;cursor:progress}
-    .dropzone{border:2px dashed var(--border);border-radius:14px;padding:14px;text-align:center;background:#fff}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+    .dropzone{border:2px dashed var(--border);border-radius:14px;padding:14px;text-align:center;background:#fff;cursor:pointer}
     .dropzone.drag{border-color:var(--brand);background:#fff5f5}
     .dz-title{font-size:14px;font-weight:700;color:var(--text)}
     .muted{color:var(--muted);font-size:12px}
@@ -92,6 +95,10 @@
     footer{margin-top:12px;text-align:center}
 
     .weekend-label{margin-bottom:12px}
+    .id-row{display:flex;gap:10px}
+    .id-row input{flex:1}
+    .id-row button{flex:0 0 auto}
+
     .stepper{display:flex;align-items:center;gap:10px}
     .step-btn{width:48px;height:48px;flex:0 0 auto;padding:0;font-size:26px;font-weight:900;border-radius:12px;line-height:1}
     .step-btn:active{transform:scale(.95)}
@@ -100,9 +107,18 @@
     .send-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:24px}
     .resend-link{all:unset;cursor:pointer;color:var(--accent);font-size:13px;text-decoration:underline}
 
+    .section-block{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+    .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:10px 0}
+    .gallery-item{display:grid;gap:6px;justify-items:center}
+    .gallery-thumb-btn{all:unset;cursor:zoom-in;width:100%}
+    .gallery-thumb{width:100%;height:90px;object-fit:cover;border-radius:10px;border:1px solid var(--border);display:block}
+    .official-chip{background:#fff1cf;border-color:#ffe29b;color:#6d4e00;font-size:11px;padding:4px 8px}
+    .select-photo-btn{all:unset;cursor:pointer;color:var(--accent);font-size:11px;text-decoration:underline;text-align:center}
+
     @media (max-width:420px){
       .match-card{grid-template-columns:64px 1fr auto}
       .right{grid-column:1 / -1; align-items:flex-start}
+      .row{grid-template-columns:1fr}
     }
     /* Lightbox */
     .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:50}
@@ -121,6 +137,7 @@
         </div>
       </header>
 
+      <!-- LISTE DES RENCONTRES (mode par défaut, pas de ?match_id= dans l'URL) -->
       <section id="picker" class="matches">
         <h3>Choisir une rencontre</h3>
         <label class="weekend-label">Week-end
@@ -128,77 +145,106 @@
         </label>
         <div id="matchesMsg" class="muted">Chargement des matchs…</div>
         <div id="daysContainer"></div>
+
+        <label class="id-row-label">Match absent de la liste ?
+          <div class="id-row">
+            <input id="manualMatchId" placeholder="ID match (ex: rencontre-1234567)" autocomplete="off">
+            <button type="button" id="goIdBtn">Ouvrir</button>
+          </div>
+        </label>
       </section>
 
-      <div id="selected" class="selected" hidden>
-        <div class="sel-top">
-          <div class="sel-teams" id="selTeams"></div>
-          <div class="muted" id="selMeta"></div>
+      <!-- PAGE MATCH (mode ?match_id=XXX) : score en direct, commentaire, galerie photo -->
+      <section id="matchPage" hidden>
+        <button type="button" id="backBtn" class="mini back-btn">← Retour à la liste</button>
+
+        <div class="match-header">
+          <div>
+            <div class="sel-teams" id="selTeams"></div>
+            <div class="muted" id="selMeta"></div>
+          </div>
         </div>
-        <button type="button" id="changeBtn" class="mini">Changer</button>
-      </div>
 
-      <!-- FORMULAIRE SCORE -->
-      <form id="f" novalidate>
-        <label id="idLine">ID match
-          <input name="match_id" id="match_id" required placeholder="ex: MCH-2025-08-12-001" autocomplete="off">
-        </label>
+        <form id="f" novalidate>
+          <input type="hidden" id="match_id" value="">
 
-        <label>État du match
-          <select name="etat_match" id="etat_match" required>
-            <option value="termine" selected>Terminé</option>
-            <option value="en_cours">En cours</option>
-          </select>
-          <span class="muted">Si « En cours », indiquez le temps de jeu.</span>
-        </label>
-
-        <div class="row">
-          <label><span id="label_dom">Score domicile</span>
-            <div class="stepper">
-              <button type="button" class="step-btn" id="dom_minus">−</button>
-              <div class="score-value" id="dom_display">0</div>
-              <button type="button" class="step-btn" id="dom_plus">+</button>
-            </div>
+          <label>État du match
+            <select id="etat_match" required>
+              <option value="termine" selected>Terminé</option>
+              <option value="en_cours">En cours</option>
+            </select>
+            <span class="muted">Si « En cours », indiquez le temps de jeu.</span>
           </label>
-          <label><span id="label_ext">Score extérieur</span>
-            <div class="stepper">
-              <button type="button" class="step-btn" id="ext_minus">−</button>
-              <div class="score-value" id="ext_display">0</div>
-              <button type="button" class="step-btn" id="ext_plus">+</button>
-            </div>
+
+          <div class="row">
+            <label><span id="label_dom">Score domicile</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" id="dom_minus">−</button>
+                <div class="score-value" id="dom_display">0</div>
+                <button type="button" class="step-btn" id="dom_plus">+</button>
+              </div>
+            </label>
+            <label><span id="label_ext">Score extérieur</span>
+              <div class="stepper">
+                <button type="button" class="step-btn" id="ext_minus">−</button>
+                <div class="score-value" id="ext_display">0</div>
+                <button type="button" class="step-btn" id="ext_plus">+</button>
+              </div>
+            </label>
+          </div>
+          <input type="hidden" id="score_dom" value="0">
+          <input type="hidden" id="score_ext" value="0">
+
+          <div class="row one" id="temps_wrapper" hidden>
+            <label>Temps de jeu (minutes)
+              <div class="stepper">
+                <button type="button" class="step-btn" id="temps_minus">−</button>
+                <div class="score-value" id="temps_display">—</div>
+                <button type="button" class="step-btn" id="temps_plus">+</button>
+              </div>
+            </label>
+          </div>
+          <input type="hidden" id="temps_jeu" value="">
+
+          <label>Résultat (auto)
+            <select id="statut" required style="pointer-events:none;opacity:.95">
+              <option value="" disabled selected>— Calculé automatiquement —</option>
+              <option>En cours</option>
+              <option>Victoire</option>
+              <option>Défaite</option>
+              <option>Match Nul</option>
+              <option>Terminé</option>
+            </select>
           </label>
-        </div>
-        <input type="hidden" name="score_dom" id="score_dom" value="0">
-        <input type="hidden" name="score_ext" id="score_ext" value="0">
 
-        <div class="row one" id="temps_wrapper" hidden>
-          <label>Temps de jeu (minutes)
-            <div class="stepper">
-              <button type="button" class="step-btn" id="temps_minus">−</button>
-              <div class="score-value" id="temps_display">—</div>
-              <button type="button" class="step-btn" id="temps_plus">+</button>
-            </div>
+          <div class="actions">
+            <div class="send-status muted" id="msg" role="status" aria-live="polite">Chargement du match…</div>
+          </div>
+        </form>
+
+        <div class="section-block">
+          <h3>Commentaire</h3>
+          <label>Ambiance, fait marquant, remerciements…
+            <textarea id="commentaire" rows="3" placeholder="Un mot sur le match (facultatif)"></textarea>
           </label>
+          <div class="send-status muted" id="commentMsg" role="status" aria-live="polite"></div>
         </div>
-        <input type="hidden" name="temps_jeu" id="temps_jeu" value="">
 
-        <label>Résultat (auto)
-          <select name="statut" id="statut" required style="pointer-events:none;opacity:.95">
-            <option value="" disabled selected>— Calculé automatiquement —</option>
-            <option>En cours</option>
-            <option>Victoire</option>
-            <option>Défaite</option>
-            <option>Match Nul</option>
-            <option>Terminé</option>
-          </select>
-        </label>
+        <div class="section-block">
+          <h3>Photos</h3>
+          <div class="muted" id="galleryMsg">Chargement des photos…</div>
+          <div class="gallery-grid" id="galleryGrid"></div>
 
-        <div class="actions">
-          <div class="send-status muted" id="msg" role="status" aria-live="polite">Sélectionnez une rencontre pour commencer — le score s'envoie automatiquement à chaque +/-.</div>
+          <div class="dropzone" id="photoDz">
+            <div class="dz-title">📷 Ajouter une photo</div>
+            <input type="file" id="photoInput" accept="image/*" hidden>
+            <div class="muted">Cliquez ou glissez-déposez une image ici. Choisissez ensuite laquelle devient la photo officielle (réseaux) dans la galerie ci-dessus.</div>
+          </div>
+          <div class="send-status muted" id="photoMsg" role="status" aria-live="polite"></div>
         </div>
-      </form>
+      </section>
 
-      <footer class="muted">Astuce : créez un QR code vers cette page. Choisissez le week-end puis la rencontre — le score s'envoie automatiquement à chaque +/-. Pour ajouter une photo de fin de match, utilisez le formulaire dédié.</footer>
+      <footer class="muted">Astuce : créez un QR code vers cette page. Choisissez le week-end puis la rencontre — chaque match a sa propre page (score, commentaire, photos), avec un lien que vous pouvez partager.</footer>
     </div>
   </div>
 
@@ -222,10 +268,12 @@
         categorie:'Catégorie', genre:'Genre', championnat:'Championnat',
         equipe1:'Eq1', equipe1x:'Eq1X', equipe2:'Eq2', equipe2x:'Eq2X',
         eq1score:'Eq1Score', eq2score:'Eq2Score', winlose:'WinLose',
-        gymnase:'Gymnase', ville:'Ville', photo:'PhotoEq', scoreSource:'Score Source'
+        gymnase:'Gymnase', ville:'Ville', photo:'PhotoEq', scoreSource:'Score Source',
+        commentaire:'Commentaire'
       },
       clubAliases:['Sporting Villette','Villette Genas','Entente Villette Genas','Est Lyonnais','Lyon Est Handball'],
-      liveThresholdMin:90
+      liveThresholdMin:90,
+      maxSizeMB:10
     };
 
     (function initBrand(){
@@ -234,7 +282,7 @@
     })();
 
     // --- utils
-    function norm(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+    function norm(s){return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();}
     function isUrl(u){try{new URL(u);return true;}catch{return false;}}
     function parseDateFR(v){if(!v)return null; const m=String(v).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m){const d=m[1].padStart(2,'0'),mo=m[2].padStart(2,'0'),y=m[3]; return new Date(`${y}-${mo}-${d}T00:00:00`);} const d=new Date(v); return isNaN(d)?null:d;}
     function parseDateTimeFR(ds,ts){const d=parseDateFR(ds); if(!d)return null; const [h='00',m='00']=String(ts||'00:00').split(':'); const dt=new Date(d); dt.setHours(parseInt(h,10)||0,parseInt(m,10)||0,0,0); return dt;}
@@ -248,18 +296,33 @@
     function nextWeekendRange(now){const day=now.getDay(); const daysToSat=(6-day+7)%7; const start=new Date(now); start.setHours(0,0,0,0); start.setDate(start.getDate()+daysToSat); const end=new Date(start); end.setDate(end.getDate()+1); end.setHours(23,59,59,999); return [start,end];}
     function fmtWeekendLabel(sat){const sun=new Date(sat); sun.setDate(sun.getDate()+1); const sameMonth=sat.getMonth()===sun.getMonth(); const satLabel=sat.toLocaleDateString('fr-FR', sameMonth?{day:'2-digit'}:{day:'2-digit',month:'long'}); const sunLabel=sun.toLocaleDateString('fr-FR',{day:'2-digit',month:'long'}); return `${satLabel} - ${sunLabel}`;}
     function csvToRows(csv){const rows=[];let cur=[],i=0,f='',q=false;while(i<csv.length){const c=csv[i++]; if(c==='"'){if(q && csv[i]==='"'){f+='"';i++;} else q=!q;} else if(c===',' && !q){cur.push(f);f='';} else if((c==='\n'||c==='\r') && !q){ if(f!==''||cur.length){cur.push(f);rows.push(cur);cur=[];f='';} } else f+=c;} if(f!==''||cur.length){cur.push(f);rows.push(cur);} return rows.filter(r=>r.length&&r.join('').trim()!=='');}
+    function slugify(s){return String(s||'').trim().replace(/\s+/g,'-').replace(/[^\w\-]+/g,'').toUpperCase();}
+    function extFrom(t,f){if(!t)return f||'jpg'; if(t==='image/jpeg')return'jpg'; if(t==='image/png')return'png'; if(t==='image/webp')return'webp'; if(t==='image/heic'||t==='image/heif')return'heic'; return f||'jpg';}
+    function fileToBase64(file){return new Promise((resolve,reject)=>{const reader=new FileReader(); reader.onload=()=>resolve(String(reader.result).split(',')[1]||''); reader.onerror=reject; reader.readAsDataURL(file);});}
+
+    // --- navigation (page liste <-> page match, pilotée par ?match_id= dans l'URL)
+    function getMatchIdFromUrl(){ return new URLSearchParams(location.search).get('match_id'); }
+    function goToMatch(id){ location.href = location.pathname + '?match_id=' + encodeURIComponent(id); }
+    function goToList(){ location.href = location.pathname; }
+
+    const pickerSection=document.getElementById('picker');
+    const matchPageSection=document.getElementById('matchPage');
 
     const matchesMsg=document.getElementById('matchesMsg');
     const daysContainer=document.getElementById('daysContainer');
     const weekendSelect=document.getElementById('weekendSelect');
     let allItems=[];
-    const idLine=document.getElementById('idLine');
-    const selectedBox=document.getElementById('selected');
-    const selTeams=document.getElementById('selTeams');
-    const selMeta=document.getElementById('selMeta');
-    const changeBtn=document.getElementById('changeBtn');
     const lightbox=document.getElementById('lightbox');
     const lightboxImg=document.getElementById('lightboxImg');
+
+    document.getElementById('goIdBtn').addEventListener('click', ()=>{
+      const id=document.getElementById('manualMatchId').value.trim();
+      if(id) goToMatch(id);
+    });
+    document.getElementById('manualMatchId').addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); document.getElementById('goIdBtn').click(); }
+    });
+    document.getElementById('backBtn').addEventListener('click', goToList);
 
     async function loadMatches(){
       try{
@@ -290,7 +353,6 @@
         }).filter(x=>x&&x.match_id);
 
         allItems=items;
-        window.__csv_cache={rows,idx,fields:L,headers};
         populateWeekendSelect(items);
         renderForSelectedWeekend();
       }catch{ matchesMsg.textContent="Impossible de charger la liste des matchs."; }
@@ -423,9 +485,9 @@
             </div>
             <div class="right">
               ${rightChipsForMatch(m)}
-              ${m.photo ? `<span class="thumb-wrap"><button class="thumb-btn" data-photo="${m.photo}" aria-label="Agrandir la photo" onclick="event.stopPropagation();openLightbox('${m.photo}')"><img class="thumb" src="${m.photo}" alt="Photo du match"></button></span>` : ``}
+              ${m.photo ? `<span class="thumb-wrap"><img class="thumb" src="${m.photo}" alt="Photo du match"></span>` : ``}
             </div>`;
-          card.addEventListener('click',()=>selectMatch(m));
+          card.addEventListener('click',()=>goToMatch(m.match_id));
           listEl.appendChild(card);
         });
 
@@ -441,16 +503,24 @@
     lightbox.addEventListener('click', closeLightbox);
     window.openLightbox=openLightbox;
 
-    // --- sélection + formulaire
+    // ===================== PAGE MATCH =====================
     const labelDom=document.getElementById('label_dom');
     const labelExt=document.getElementById('label_ext');
-    const inputId=document.getElementById('match_id');
     const sdEl=document.getElementById('score_dom');
     const seEl=document.getElementById('score_ext');
     const statutEl=document.getElementById('statut');
     const etatEl=document.getElementById('etat_match');
     const tempsWrap=document.getElementById('temps_wrapper');
     const tempsEl=document.getElementById('temps_jeu');
+    const selTeams=document.getElementById('selTeams');
+    const selMeta=document.getElementById('selMeta');
+    const commentEl=document.getElementById('commentaire');
+    const commentMsg=document.getElementById('commentMsg');
+    const galleryMsg=document.getElementById('galleryMsg');
+    const galleryGrid=document.getElementById('galleryGrid');
+    const photoMsg=document.getElementById('photoMsg');
+    const photoDz=document.getElementById('photoDz');
+    const photoInput=document.getElementById('photoInput');
 
     function setTeamLabels(eq1,eq2){ if(eq1) labelDom.textContent=`Score ${eq1}`; if(eq2) labelExt.textContent=`Score ${eq2}`; }
 
@@ -506,8 +576,9 @@
     document.getElementById('temps_minus').addEventListener('click', ()=>{ setTemps((parseInt(tempsEl.value,10)||1)-1); scheduleSend(); });
 
     // Verrou : score déjà confirmé par la FFHB (Score Source='ffhb' côté sheet, cf Code.gs)
-    // -> saisie manuelle désactivée. Le serveur refuse aussi l'écriture dans ce cas (verrou
-    // appliqué ici en plus pour éviter un aller-retour réseau inutile et confus).
+    // -> saisie manuelle désactivée. Le commentaire, lui, reste modifiable même verrouillé.
+    // Le serveur refuse aussi l'écriture du score dans ce cas (verrou appliqué ici en plus
+    // pour éviter un aller-retour réseau inutile et confus).
     let currentLocked=false;
     const LOCK_STEP_IDS=['dom_plus','dom_minus','ext_plus','ext_minus','temps_plus','temps_minus'];
     function setLocked(locked){
@@ -516,91 +587,198 @@
       etatEl.disabled=locked;
     }
 
-    function selectMatch(m){
-      selTeams.textContent=`${(m.equipe1||'').trim()} vs ${(m.equipe2||'').trim()}`;
-      selMeta.textContent=[fmtDate(m._date), fmtTime(m._date), (m.categorie||''), (m.championnat||''), (m.ville||'')].filter(Boolean).join(' · ');
-      selectedBox.hidden=false; idLine.style.display='none';
-      document.getElementById('match_id').value=m.match_id||'';
-      setTeamLabels(m.equipe1,m.equipe2);
+    let currentOfficialUrl='';
 
-      // Préremplit le score déjà connu (reprise d'un match déjà commencé), sinon 0-0.
-      const s1=(m.eq1score!=null && String(m.eq1score).trim()!=='') ? parseInt(m.eq1score,10) : 0;
-      const s2=(m.eq2score!=null && String(m.eq2score).trim()!=='') ? parseInt(m.eq2score,10) : 0;
-      setScore('dom', Number.isFinite(s1)?s1:0);
-      setScore('ext', Number.isFinite(s2)?s2:0);
-
-      // Pré-sélection état/résultat : si WinLose "20e" -> En cours (avec la minute déjà connue
-      // préremplie) ; sinon "Terminé".
-      const minuteMatch = m.winlose && String(m.winlose).match(/^(\d{1,2})\s*e$/i);
-      if (minuteMatch){ etatEl.value='en_cours'; statutEl.value='En cours'; toggleTempsByEtat(); setTemps(parseInt(minuteMatch[1],10)); }
-      else { etatEl.value='termine'; computeResult(); toggleTempsByEtat(); }
-
-      setLocked(!!m.locked);
-      if (m.locked){ msg.textContent='🔒 Score confirmé par la FFHB — non modifiable ici.'; msg.className='msg muted'; }
-      else { msg.textContent='Match sélectionné — le score s\'envoie automatiquement à chaque +/-.'; msg.className='msg muted'; }
-      document.getElementById('f').scrollIntoView({behavior:'smooth',block:'start'});
-    }
-
-    changeBtn.addEventListener('click',()=>{
-      selectedBox.hidden=true; idLine.style.display='';
-      document.getElementById('match_id').value='';
-      setTeamLabels('domicile','extérieur'); statutEl.value='';
-      setScore('dom',0); setScore('ext',0);
-      etatEl.value='termine'; toggleTempsByEtat();
-      setLocked(false);
-      msg.textContent='Sélectionnez une rencontre pour commencer — le score s\'envoie automatiquement à chaque +/-.'; msg.className='msg muted';
-    });
-
-    async function lookupTeamsById(id){
+    // Charge un match dans la page match : équipes/score/verrou depuis le CSV publié,
+    // commentaire depuis la même ligne, galerie photo via list_photos.
+    async function loadMatchPage(id){
+      document.getElementById('match_id').value=id;
+      selTeams.textContent='Chargement…'; selMeta.textContent='';
+      document.getElementById('msg').textContent='Chargement du match…';
+      commentMsg.textContent=''; galleryMsg.textContent='Chargement des photos…'; photoMsg.textContent='';
       try{
-        const c=window.__csv_cache; if(!c) return;
-        const F=c.fields;
-        const mi=c.idx[(F.match_id||'')];
-        const e1=c.idx[(F.equipe1||'')], e1x=c.idx[(F.equipe1x||'')];
-        const e2=c.idx[(F.equipe2||'')], e2x=c.idx[(F.equipe2x||'')];
-        const row=c.rows.find(r=>String(r[mi]).trim()===id.trim());
-        if(row){
-          const e1label=[row[e1],row[e1x]].filter(Boolean).join(' ').trim();
-          const e2label=[row[e2],row[e2x]].filter(Boolean).join(' ').trim();
-          setTeamLabels(e1label,e2label);
-          const s1i=c.idx[(F.eq1score||'')], s2i=c.idx[(F.eq2score||'')];
-          const s1=parseInt(row[s1i],10), s2=parseInt(row[s2i],10);
-          setScore('dom', Number.isFinite(s1)?s1:0);
-          setScore('ext', Number.isFinite(s2)?s2:0);
-          computeResult();
-          const sourceI=c.idx[(F.scoreSource||'')];
-          const locked=(row[sourceI]||'').trim().toLowerCase()==='ffhb';
-          setLocked(locked);
-          msg.textContent = locked ? '🔒 Score confirmé par la FFHB — non modifiable ici.' : 'Match trouvé — le score s\'envoie automatiquement à chaque +/-.';
-          msg.className='msg muted';
+        const res=await fetch(CONFIG.gsheetCsvUrl,{cache:'no-store'}); if(!res.ok) throw new Error();
+        const csv=await res.text(), rows=csvToRows(csv);
+        const headers=rows.shift().map(h=>h.trim());
+        const idx=Object.fromEntries(headers.map((h,i)=>[h.toLowerCase(),i]));
+        const F=CONFIG.fields; const L=Object.fromEntries(Object.entries(F).map(([k,v])=>[k,(v||'').toLowerCase()]));
+
+        const mi=idx[L.match_id];
+        const row=rows.find(r=>String(r[mi]).trim()===id.trim());
+        if(!row){
+          selTeams.textContent='Match introuvable';
+          selMeta.textContent="Vérifiez l'identifiant, ou revenez à la liste.";
+          document.getElementById('msg').textContent='';
+          galleryMsg.textContent='';
+          return;
         }
-      }catch{}
+
+        const e1=(row[idx[L.equipe1]]||'').trim(), e1x=(row[idx[L.equipe1x]]||'').trim();
+        const e2=(row[idx[L.equipe2]]||'').trim(), e2x=(row[idx[L.equipe2x]]||'').trim();
+        const e1label=(e1+(e1x?` ${e1x}`:'' )).trim(); const e2label=(e2+(e2x?` ${e2x}`:'' )).trim();
+        const dt=parseDateTimeFR(row[idx[L.date]], row[idx[L.heure]]);
+
+        selTeams.textContent=`${e1label} vs ${e2label}`;
+        selMeta.textContent=[fmtDate(dt), fmtTime(dt), row[idx[L.categorie]], row[idx[L.championnat]], row[idx[L.ville]]].filter(Boolean).join(' · ');
+        setTeamLabels(e1label, e2label);
+
+        const s1=parseInt(row[idx[L.eq1score]],10), s2=parseInt(row[idx[L.eq2score]],10);
+        setScore('dom', Number.isFinite(s1)?s1:0);
+        setScore('ext', Number.isFinite(s2)?s2:0);
+
+        const winlose=row[idx[L.winlose]];
+        const minuteMatch=winlose && String(winlose).match(/^(\d{1,2})\s*e$/i);
+        if(minuteMatch){ etatEl.value='en_cours'; statutEl.value='En cours'; toggleTempsByEtat(); setTemps(parseInt(minuteMatch[1],10)); }
+        else { etatEl.value='termine'; computeResult(); toggleTempsByEtat(); }
+
+        const locked=(row[idx[L.scoreSource]]||'').trim().toLowerCase()==='ffhb';
+        setLocked(locked);
+        document.getElementById('msg').textContent = locked ? '🔒 Score confirmé par la FFHB — non modifiable ici.' : "Le score s'envoie automatiquement à chaque +/-.";
+        document.getElementById('msg').className='msg muted';
+
+        commentEl.value = row[idx[L.commentaire]] || '';
+
+        const photoEq=(row[idx[L.photo]]||'').trim();
+        currentOfficialUrl = isUrl(photoEq) ? photoEq : '';
+        await loadGallery(id);
+      }catch(err){
+        console.error(err);
+        selTeams.textContent='Erreur de chargement';
+        selMeta.textContent='Vérifiez la connexion et réessayez.';
+      }
     }
 
-    (function prefill(){
-      const p=new URLSearchParams(location.search);
-      const id=p.get('match_id'); if(id){ inputId.value=id; }
-      const e1=p.get('eq1'), e2=p.get('eq2'); if(e1||e2) setTeamLabels(e1,e2);
-      toggleTempsByEtat();
-    })();
+    // --- Commentaire : envoi auto débouncé, indépendant du verrou score (cf Code.gs).
+    let commentTimer=null, commentSending=false, commentPendingResend=false;
+    function scheduleCommentSend(){
+      const id=document.getElementById('match_id').value.trim();
+      if(!id) return;
+      clearTimeout(commentTimer);
+      commentMsg.textContent='Modifié…'; commentMsg.className='msg muted';
+      commentTimer=setTimeout(doSendComment, 600);
+    }
+    async function doSendComment(){
+      const id=document.getElementById('match_id').value.trim();
+      if(!id) return;
+      if(commentSending){ commentPendingResend=true; return; }
+      const fd=new FormData();
+      fd.append('action','add_score'); fd.append('secret', CONFIG.webhookSecret);
+      fd.append('match_id', id); fd.append('commentaire', commentEl.value);
+      commentSending=true; commentMsg.textContent='⏳ Envoi…'; commentMsg.className='msg muted';
+      try{
+        const res=await fetch(CONFIG.webhookUrl,{method:'POST', body:fd});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const data=await res.json();
+        if(!data.ok) throw new Error(data.error||'Erreur Web App');
+        commentMsg.textContent='✅ Commentaire enregistré.'; commentMsg.className='msg ok';
+      }catch(err){
+        console.error(err);
+        const reason=(err && err.message)?err.message:'connexion impossible';
+        commentMsg.innerHTML=`❌ Échec : ${reason}. <button type="button" class="resend-link" id="resendCommentBtn">Réessayer</button>`;
+        commentMsg.className='msg err';
+        document.getElementById('resendCommentBtn').addEventListener('click', doSendComment);
+      }finally{
+        commentSending=false;
+        if(commentPendingResend){ commentPendingResend=false; doSendComment(); }
+      }
+    }
+    commentEl.addEventListener('input', scheduleCommentSend);
 
-    let t=null; inputId.addEventListener('input',()=>{clearTimeout(t);const id=inputId.value.trim();if(!id)return;t=setTimeout(()=>lookupTeamsById(id),400);});
-    inputId.addEventListener('blur',()=>{const id=inputId.value.trim();if(id)lookupTeamsById(id);});
+    // --- Galerie photo : liste (list_photos), upload (add_photo), sélection officielle (select_photo).
+    async function loadGallery(matchId){
+      try{
+        const res=await fetch(CONFIG.webhookUrl + '?action=list_photos&match_id=' + encodeURIComponent(matchId), {cache:'no-store'});
+        const data=await res.json();
+        if(!data.ok) throw new Error(data.error || 'Erreur Web App');
+        renderGallery(data.photos);
+        galleryMsg.textContent = data.photos.length ? '' : 'Aucune photo pour ce match pour le moment.';
+      }catch(err){
+        console.error(err);
+        galleryMsg.textContent='Impossible de charger les photos : '+(err.message||'erreur inconnue');
+      }
+    }
 
-    loadMatches();
+    function renderGallery(photos){
+      galleryGrid.innerHTML = photos.map(p=>{
+        const isOfficial = p.url===currentOfficialUrl;
+        return `<div class="gallery-item">
+          <button type="button" class="gallery-thumb-btn" onclick="openLightbox('${p.url}')"><img class="gallery-thumb" src="${p.url}" alt="Photo du match"></button>
+          ${isOfficial
+            ? `<span class="chip official-chip">⭐ Officielle</span>`
+            : `<button type="button" class="select-photo-btn" data-url="${p.url}">Choisir comme officielle</button>`}
+        </div>`;
+      }).join('');
+      galleryGrid.querySelectorAll('.select-photo-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>selectOfficialPhoto(btn.dataset.url));
+      });
+    }
 
-    // Envoi auto du score (statut unifié + garde-fou minute) : pas de bouton "Envoyer" — un
-    // tap sur +/- (score ou temps de jeu) ou un changement d'état suffit. Debounce de 600ms
-    // pour ne pas spammer le Web App si on tape plusieurs fois de suite rapidement ; si un
-    // envoi est déjà en cours quand le prochain se déclenche, on en programme un seul de
-    // plus juste après (pas d'envois en parallèle, qui pourraient arriver dans le désordre).
+    async function selectOfficialPhoto(url){
+      const id=document.getElementById('match_id').value.trim();
+      if(!id) return;
+      photoMsg.textContent='⏳ Sélection…'; photoMsg.className='msg muted';
+      try{
+        const fd=new FormData();
+        fd.append('action','select_photo'); fd.append('secret', CONFIG.webhookSecret);
+        fd.append('match_id', id); fd.append('photo_url', url);
+        const res=await fetch(CONFIG.webhookUrl, {method:'POST', body:fd});
+        const data=await res.json();
+        if(!data.ok) throw new Error(data.error||'Erreur Web App');
+        currentOfficialUrl=url;
+        photoMsg.textContent='✅ Photo officielle mise à jour.'; photoMsg.className='msg ok';
+        await loadGallery(id);
+      }catch(err){
+        console.error(err);
+        photoMsg.textContent='❌ '+(err.message||'Erreur'); photoMsg.className='msg err';
+      }
+    }
+
+    async function uploadPhoto(file){
+      const id=document.getElementById('match_id').value.trim();
+      if(!id || !file) return;
+      if(file.size > CONFIG.maxSizeMB*1024*1024){ photoMsg.textContent=`Fichier trop lourd (max ${CONFIG.maxSizeMB} Mo).`; photoMsg.className='msg err'; return; }
+      photoMsg.textContent='⏳ Envoi de la photo…'; photoMsg.className='msg muted';
+      try{
+        const ext=extFrom(file.type, file.name.split('.').pop());
+        const photoName=`${slugify(id)}-${Date.now()}.${ext}`;
+        const base64=await fileToBase64(file);
+        const fd=new FormData();
+        fd.append('action','add_photo'); fd.append('secret', CONFIG.webhookSecret);
+        fd.append('match_id', id);
+        fd.append('photo_base64', base64);
+        fd.append('photo_name', photoName);
+        fd.append('photo_type', file.type || 'image/jpeg');
+        const res=await fetch(CONFIG.webhookUrl, {method:'POST', body:fd});
+        const data=await res.json();
+        if(!data.ok) throw new Error(data.error||'Erreur Web App');
+        photoMsg.textContent='✅ Photo ajoutée à la galerie.'; photoMsg.className='msg ok';
+        await loadGallery(id);
+      }catch(err){
+        console.error(err);
+        photoMsg.textContent='❌ '+(err.message||'Erreur'); photoMsg.className='msg err';
+      }finally{
+        photoInput.value='';
+      }
+    }
+
+    photoDz.addEventListener('click', ()=>photoInput.click());
+    photoInput.addEventListener('change', ()=>{ const f=photoInput.files[0]; if(f) uploadPhoto(f); });
+    ['dragenter','dragover'].forEach(evt=>photoDz.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();photoDz.classList.add('drag')}));
+    ['dragleave','drop'].forEach(evt=>photoDz.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();photoDz.classList.remove('drag')}));
+    photoDz.addEventListener('drop', e=>{ const f=e.dataTransfer.files?.[0]; if(f) uploadPhoto(f); });
+
+    // --- Envoi auto du score (statut unifié + garde-fou minute) : pas de bouton "Envoyer" —
+    // un tap sur +/- (score ou temps de jeu) ou un changement d'état suffit. Debounce de
+    // 600ms pour ne pas spammer le Web App si on tape plusieurs fois de suite rapidement ;
+    // si un envoi est déjà en cours quand le prochain se déclenche, on en programme un seul
+    // de plus juste après (pas d'envois en parallèle, qui pourraient arriver dans le désordre).
     const form=document.getElementById('f'), msg=document.getElementById('msg');
     form.addEventListener('submit', e=>e.preventDefault());
     let sendTimer=null, sending=false, pendingResend=false;
 
     function scheduleSend(){
       const id=document.getElementById('match_id').value.trim();
-      if(!id) return; // aucun match sélectionné, rien à envoyer
+      if(!id) return; // aucun match chargé, rien à envoyer
       if(currentLocked) return; // score déjà confirmé FFHB, verrouillé (filet de sécurité)
       clearTimeout(sendTimer);
       msg.textContent='Modifié…'; msg.className='msg muted';
@@ -653,11 +831,15 @@
       }
     }
 
-    // Lightbox helpers
-    function openLightbox(src){ lightboxImg.src=src; lightbox.classList.add('open'); }
-    function closeLightbox(){ lightbox.classList.remove('open'); lightboxImg.src=''; }
-    lightbox.addEventListener('click', closeLightbox);
-
+    // ===================== BOOT : liste ou page match selon l'URL =====================
+    const urlMatchId=getMatchIdFromUrl();
+    if(urlMatchId){
+      pickerSection.hidden=true; matchPageSection.hidden=false;
+      loadMatchPage(urlMatchId);
+    } else {
+      pickerSection.hidden=false; matchPageSection.hidden=true;
+      loadMatches();
+    }
   </script>
 </body>
 </html>
