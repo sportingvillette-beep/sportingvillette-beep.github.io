@@ -685,7 +685,12 @@
     commentEl.addEventListener('input', scheduleCommentSend);
 
     // --- Galerie photo : liste (list_photos), upload (add_photo), sélection officielle (select_photo).
-    async function loadGallery(matchId){
+    // Le Web App Apps Script répond parfois avec une latence/erreur transitoire (déjà observé
+    // sur toutes les actions de ce Web App) — quelques tentatives automatiques rapprochées
+    // absorbent la plupart des cas, avec un vrai message + bouton "Réessayer" seulement si ça
+    // persiste (pas de "Chargement..." qui reste bloqué indéfiniment sans recours).
+    async function loadGallery(matchId, attempt=1){
+      if(attempt===1){ galleryMsg.textContent='Chargement des photos…'; }
       try{
         const res=await fetch(CONFIG.webhookUrl + '?action=list_photos&match_id=' + encodeURIComponent(matchId), {cache:'no-store'});
         const data=await res.json();
@@ -694,7 +699,13 @@
         galleryMsg.textContent = data.photos.length ? '' : 'Aucune photo pour ce match pour le moment.';
       }catch(err){
         console.error(err);
-        galleryMsg.textContent='Impossible de charger les photos : '+(err.message||'erreur inconnue');
+        if(attempt<3){
+          galleryMsg.textContent='Chargement des photos… (nouvelle tentative)';
+          setTimeout(()=>loadGallery(matchId, attempt+1), 1500);
+          return;
+        }
+        galleryMsg.innerHTML=`Impossible de charger les photos : ${err.message||'erreur inconnue'}. <button type="button" class="resend-link" id="retryGalleryBtn">Réessayer</button>`;
+        document.getElementById('retryGalleryBtn').addEventListener('click', ()=>loadGallery(matchId));
       }
     }
 
@@ -729,7 +740,9 @@
         await loadGallery(id);
       }catch(err){
         console.error(err);
-        photoMsg.textContent='❌ '+(err.message||'Erreur'); photoMsg.className='msg err';
+        photoMsg.innerHTML=`❌ ${err.message||'Erreur'}. <button type="button" class="resend-link" id="retrySelectBtn">Réessayer</button>`;
+        photoMsg.className='msg err';
+        document.getElementById('retrySelectBtn').addEventListener('click', ()=>selectOfficialPhoto(url));
       }
     }
 
@@ -755,7 +768,9 @@
         await loadGallery(id);
       }catch(err){
         console.error(err);
-        photoMsg.textContent='❌ '+(err.message||'Erreur'); photoMsg.className='msg err';
+        photoMsg.innerHTML=`❌ ${err.message||'Erreur'}. <button type="button" class="resend-link" id="retryUploadBtn">Réessayer</button>`;
+        photoMsg.className='msg err';
+        document.getElementById('retryUploadBtn').addEventListener('click', ()=>uploadPhoto(file));
       }finally{
         photoInput.value='';
       }
