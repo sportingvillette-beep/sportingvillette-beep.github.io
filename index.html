@@ -12,9 +12,24 @@
       --border:#cfd6df; --chip:#f6f8fb; --wait:#8a6200;
       --ok:#2e7d32; --err:#b00020; --section:#ffffff;
       --shadow:0 6px 20px rgba(16,21,34,.08);
+      /* Liste de matchs compacte (format "scores" style L'Équipe) */
+      --row-border:#e3e7ed;
+      --tab-bg:#eef0f3; --tab-text:#6b7482; --tab-active-bg:var(--brand); --tab-active-text:#ffffff;
+      --time-text:#4b5565;
+      --badge-win-bg:#e3f6ea; --badge-win-text:#1e7e39;
+      --badge-loss-bg:#fde8e8; --badge-loss-text:#b3241c;
+      --badge-draw-bg:#eef0f3; --badge-draw-text:#4b5565;
     }
     @media (prefers-color-scheme: dark){
-      :root{ --bg:#0d1117; --card:#0f141b; --text:#f3f5f8; --muted:#c5ccd6; --border:#2a3748; --chip:#172231; --section:#121926; --ok:#63d39a; --err:#ff6b6b; }
+      :root{
+        --bg:#0d1117; --card:#0f141b; --text:#f3f5f8; --muted:#c5ccd6; --border:#2a3748; --chip:#172231; --section:#121926; --ok:#63d39a; --err:#ff6b6b;
+        --row-border:#232e3d;
+        --tab-bg:#161d29; --tab-text:#8b93a0; --tab-active-bg:var(--brand); --tab-active-text:#ffffff;
+        --time-text:#c5ccd6;
+        --badge-win-bg:#123821; --badge-win-text:#7be3a0;
+        --badge-loss-bg:#3a1414; --badge-loss-text:#ff9b9b;
+        --badge-draw-bg:#1c2431; --badge-draw-text:#c5ccd6;
+      }
       input,select,button,textarea{background:#0f141b;color:var(--text)}
     }
     html,body{height:100%}
@@ -27,45 +42,36 @@
     .hint{font-size:12px;color:var(--muted)}
     h3{margin:10px 0}
 
-    .day-section{margin:14px 0 8px;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--card)}
-    .day-head{position:sticky;top:0;z-index:5;background:var(--section);padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px}
-    .day-title{font-weight:900;text-transform:capitalize}
+    /* Barre de tabs week-end (scroll horizontal, remplace le <select>) */
+    .weekend-tabs{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 10px;scrollbar-width:thin}
+    .weekend-tab{all:unset;flex:0 0 auto;padding:7px 14px;border-radius:999px;background:var(--tab-bg);color:var(--tab-text);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer}
+    .weekend-tab.active{background:var(--tab-active-bg);color:var(--tab-active-text)}
+
+    .day-section{margin:10px 0 0}
+    .day-head{position:sticky;top:0;z-index:5;background:var(--section);padding:8px 4px;display:flex;gap:8px;border-bottom:1px solid var(--row-border)}
+    .day-title{font-weight:900;text-transform:capitalize;font-size:14px}
     .day-sub{margin-left:auto;color:var(--muted);font-size:12px}
-    .list{display:grid;gap:10px;padding:10px 10px 14px}
+    .list{display:flex;flex-direction:column;padding:0}
 
-    .match-card{width:100%;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--card);cursor:pointer}
-    .match-card:active{transform:scale(.99)}
-    .time-box{display:flex;align-items:center;justify-content:center;width:64px;padding:10px;border-radius:12px;background:#e8ecff;border:1px solid #ced6ff;color:var(--deep);font-weight:900;letter-spacing:.2px}
-    /* colonne heure + cadenas éventuel */
-    .time-col{display:flex;flex-direction:column;align-items:center;gap:6px}
-    /* cadenas sous l'heure : score déjà confirmé par la FFHB, saisie manuelle verrouillée */
-    .lock-chip{
-      font-size:13px;line-height:1;
-      color:#6d4e00;background:#fff1cf;border:1px solid var(--border);
-      border-radius:999px;padding:4px 8px;
-    }
-    .teams{display:grid;gap:6px;min-width:0}
-    .team-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;min-width:0}
-    .team-name{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
-    .team-score{min-width:42px;text-align:right;font-weight:900;color:var(--deep)}
+    /* Ligne de match compacte (format "scores" style L'Équipe) : simple border-bottom,
+       padding vertical réduit au maximum pour la densité visuelle voulue par Julien. */
+    .match-card{all:unset;width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--row-border);cursor:pointer}
+    .match-card:active{opacity:.7}
+    .teams{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+    .team-name{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+    .meta-line{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+    .meta-cat{color:var(--accent);font-weight:800;font-size:11.5px}
+    .meta-place{color:var(--muted);font-size:11.5px}
 
-    /* nouvelles lignes méta + style renforcé catégorie */
-    .meta-line{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-    .meta-cat{color:var(--accent);font-weight:900;font-size:16px}
-    .meta-place{color:var(--muted);font-size:13px}
+    /* Zone droite unique et dynamique : heure (avant match) OU score+badge (en cours/terminé). */
+    .match-right{flex:0 0 auto;display:flex;align-items:center;gap:6px}
+    .match-time{color:var(--time-text);font-weight:800;font-size:13px;min-width:44px;text-align:right}
+    .score-badge{display:inline-block;min-width:46px;text-align:center;font-weight:900;font-size:13px;letter-spacing:.2px;padding:5px 9px;border-radius:8px;background:var(--badge-draw-bg);color:var(--badge-draw-text)}
+    .score-badge.win{background:var(--badge-win-bg);color:var(--badge-win-text)}
+    .score-badge.loss{background:var(--badge-loss-bg);color:var(--badge-loss-text)}
+    .lock-icon{font-size:12px;line-height:1}
 
-    /* colonne droite en pile (pastilles au-dessus, photo en dessous) */
-    .right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;justify-self:end}
-
-    .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.2px;padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--border);color:var(--text)}
-    .chip-live{background:#ffe4e2;border-color:#ffc6c2;color:#a41911}
-    .chip-wait{background:#fff1cf;border-color:#ffe29b;color:#6d4e00}
-    .chip-time{background:#eef5ff;border-color:#d9e6ff;color:#0b3aa7}
-    .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.9}
-    .dot::after{content:'';display:block;width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.35;animation:pulse 1.2s infinite ease-out}
-    @keyframes pulse{0%{transform:scale(1)}100%{transform:scale(2.2);opacity:0}}
-
-    .thumb{width:56px;height:42px;object-fit:cover;border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow)}
+    .thumb{width:34px;height:26px;object-fit:cover;border-radius:6px;border:1px solid var(--row-border)}
     .thumb-wrap{display:flex;align-items:center;justify-content:center}
     .thumb-btn{all:unset;cursor:zoom-in}
 
@@ -94,7 +100,6 @@
     .ok{color:var(--ok)} .err{color:var(--err)}
     footer{margin-top:12px;text-align:center}
 
-    .weekend-label{margin-bottom:12px}
     .id-row{display:flex;gap:10px}
     .id-row input{flex:1}
     .id-row button{flex:0 0 auto}
@@ -116,8 +121,6 @@
     .select-photo-btn{all:unset;cursor:pointer;color:var(--accent);font-size:11px;text-decoration:underline;text-align:center}
 
     @media (max-width:420px){
-      .match-card{grid-template-columns:64px 1fr auto}
-      .right{grid-column:1 / -1; align-items:flex-start}
       .row{grid-template-columns:1fr}
     }
     /* Lightbox */
@@ -140,9 +143,7 @@
       <!-- LISTE DES RENCONTRES (mode par défaut, pas de ?match_id= dans l'URL) -->
       <section id="picker" class="matches">
         <h3>Choisir une rencontre</h3>
-        <label class="weekend-label">Week-end
-          <select id="weekendSelect"></select>
-        </label>
+        <div class="weekend-tabs" id="weekendTabs" role="tablist" aria-label="Choisir un week-end"></div>
         <div id="matchesMsg" class="muted">Chargement des matchs…</div>
         <div id="daysContainer"></div>
 
@@ -288,13 +289,11 @@
     function parseDateTimeFR(ds,ts){const d=parseDateFR(ds); if(!d)return null; const [h='00',m='00']=String(ts||'00:00').split(':'); const dt=new Date(d); dt.setHours(parseInt(h,10)||0,parseInt(m,10)||0,0,0); return dt;}
     function fmtDate(d){return d?d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'}):'';}
     function fmtTime(d){return d?d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';}
-    function sameDay(a,b){return a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
     // Samedi de la semaine contenant d (utilisé comme clé de regroupement/sélection par week-end).
     function saturdayOf(d){const day=d.getDay(); const diff=day===6?0:(day+1); const sat=new Date(d); sat.setHours(0,0,0,0); sat.setDate(sat.getDate()-diff); return sat;}
     function weekendRangeFromSaturday(sat){const start=new Date(sat); start.setHours(0,0,0,0); const end=new Date(start); end.setDate(end.getDate()+1); end.setHours(23,59,59,999); return [start,end];}
     // Week-end "de la semaine en cours" = prochain samedi 00:00 au dimanche 23:59 (aujourd'hui inclus si on est déjà sam/dim).
     function nextWeekendRange(now){const day=now.getDay(); const daysToSat=(6-day+7)%7; const start=new Date(now); start.setHours(0,0,0,0); start.setDate(start.getDate()+daysToSat); const end=new Date(start); end.setDate(end.getDate()+1); end.setHours(23,59,59,999); return [start,end];}
-    function fmtWeekendLabel(sat){const sun=new Date(sat); sun.setDate(sun.getDate()+1); const sameMonth=sat.getMonth()===sun.getMonth(); const satLabel=sat.toLocaleDateString('fr-FR', sameMonth?{day:'2-digit'}:{day:'2-digit',month:'long'}); const sunLabel=sun.toLocaleDateString('fr-FR',{day:'2-digit',month:'long'}); return `${satLabel} - ${sunLabel}`;}
     function csvToRows(csv){const rows=[];let cur=[],i=0,f='',q=false;while(i<csv.length){const c=csv[i++]; if(c==='"'){if(q && csv[i]==='"'){f+='"';i++;} else q=!q;} else if(c===',' && !q){cur.push(f);f='';} else if((c==='\n'||c==='\r') && !q){ if(f!==''||cur.length){cur.push(f);rows.push(cur);cur=[];f='';} } else f+=c;} if(f!==''||cur.length){cur.push(f);rows.push(cur);} return rows.filter(r=>r.length&&r.join('').trim()!=='');}
     function slugify(s){return String(s||'').trim().replace(/\s+/g,'-').replace(/[^\w\-]+/g,'').toUpperCase();}
     function extFrom(t,f){if(!t)return f||'jpg'; if(t==='image/jpeg')return'jpg'; if(t==='image/png')return'png'; if(t==='image/webp')return'webp'; if(t==='image/heic'||t==='image/heif')return'heic'; return f||'jpg';}
@@ -310,8 +309,9 @@
 
     const matchesMsg=document.getElementById('matchesMsg');
     const daysContainer=document.getElementById('daysContainer');
-    const weekendSelect=document.getElementById('weekendSelect');
+    const weekendTabs=document.getElementById('weekendTabs');
     let allItems=[];
+    let selectedSaturday=null;
     const lightbox=document.getElementById('lightbox');
     const lightboxImg=document.getElementById('lightboxImg');
 
@@ -353,76 +353,63 @@
         }).filter(x=>x&&x.match_id);
 
         allItems=items;
-        populateWeekendSelect(items);
+        populateWeekendTabs(items);
         renderForSelectedWeekend();
       }catch{ matchesMsg.textContent="Impossible de charger la liste des matchs."; }
     }
 
-    // Peuple le sélecteur avec tous les week-ends ayant au moins un match, sélectionne par
+    const MOIS_ABBR_FR=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    // Format court pour un tab ("06-07 sept.").
+    function fmtWeekendTabLabel(sat){
+      const sun=new Date(sat); sun.setDate(sun.getDate()+1);
+      const dd=n=>String(n).padStart(2,'0');
+      if(sat.getMonth()===sun.getMonth()) return `${dd(sat.getDate())}-${dd(sun.getDate())} ${MOIS_ABBR_FR[sun.getMonth()]}`;
+      return `${dd(sat.getDate())} ${MOIS_ABBR_FR[sat.getMonth()]}-${dd(sun.getDate())} ${MOIS_ABBR_FR[sun.getMonth()]}`;
+    }
+
+    // Peuple la barre de tabs avec tous les week-ends ayant au moins un match, sélectionne par
     // défaut le week-end en cours/à venir (si un match existe pile ce week-end-là).
-    function populateWeekendSelect(items){
+    function populateWeekendTabs(items){
       const saturdays=new Map();
       items.forEach(m=>{ if(!m._date) return; const sat=saturdayOf(m._date); saturdays.set(sat.toISOString(), sat); });
       const list=Array.from(saturdays.values()).sort((a,b)=>a-b);
-      if(!list.length){ weekendSelect.innerHTML='<option>Aucun match</option>'; matchesMsg.textContent='Aucun match trouvé.'; return; }
+      if(!list.length){ weekendTabs.innerHTML=''; matchesMsg.textContent='Aucun match trouvé.'; return; }
       const [nextStart]=nextWeekendRange(new Date());
-      weekendSelect.innerHTML=list.map(sat=>{
-        const selected = sat.toDateString()===nextStart.toDateString() ? ' selected' : '';
-        return `<option value="${sat.toISOString()}"${selected}>${fmtWeekendLabel(sat)}</option>`;
+      const defaultSat = list.find(sat=>sat.toDateString()===nextStart.toDateString()) || list[0];
+      selectedSaturday = defaultSat;
+      weekendTabs.innerHTML=list.map(sat=>{
+        const active = sat.toDateString()===selectedSaturday.toDateString() ? ' active' : '';
+        return `<button type="button" class="weekend-tab${active}" role="tab" data-sat="${sat.toISOString()}">${fmtWeekendTabLabel(sat)}</button>`;
       }).join('');
+      weekendTabs.querySelectorAll('.weekend-tab').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          selectedSaturday=new Date(btn.dataset.sat);
+          weekendTabs.querySelectorAll('.weekend-tab').forEach(b=>b.classList.toggle('active', b===btn));
+          btn.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+          renderForSelectedWeekend();
+        });
+      });
+      const activeTab=weekendTabs.querySelector('.weekend-tab.active');
+      if(activeTab) activeTab.scrollIntoView({inline:'center', block:'nearest'});
     }
 
     function renderForSelectedWeekend(){
-      if(!weekendSelect.value){ matchesMsg.textContent='Aucun match trouvé.'; daysContainer.innerHTML=''; return; }
-      const sat=new Date(weekendSelect.value);
-      const [start,end]=weekendRangeFromSaturday(sat);
+      if(!selectedSaturday){ matchesMsg.textContent='Aucun match trouvé.'; daysContainer.innerHTML=''; return; }
+      const [start,end]=weekendRangeFromSaturday(selectedSaturday);
       const filtered=allItems.filter(m=>m._date && m._date>=start && m._date<=end).sort((a,b)=>a._date-b._date);
       renderDays(filtered);
       matchesMsg.textContent = filtered.length ? '' : 'Aucun match ce week-end-là.';
     }
-    weekendSelect.addEventListener('change', renderForSelectedWeekend);
 
-    function parseMinute(winlose){
-      if(!winlose) return null;
-      const m=String(winlose).trim().match(/^(\d{1,2})\s*e$/i);
-      return m?parseInt(m[1],10):null;
-    }
-    function isFinished(winlose){
-      if(!winlose) return false;
-      const w=String(winlose);
-      return /(victoire|defaite|défaite|match\s*nul|termine|terminé)/i.test(w);
-    }
-
-    function rightChipsForMatch(m){
-      const chips=[];
-      const now=new Date();
-      const start=m._date;
-      const minsSinceStart = (start && now>start)? Math.floor((now-start)/60000) : null;
-      const s1 = (m.eq1score!=null && String(m.eq1score).trim()!=='') ? Number(m.eq1score) : null;
-      const s2 = (m.eq2score!=null && String(m.eq2score).trim()!=='') ? Number(m.eq2score) : null;
-      const hasScore = (s1!==null && s2!==null);
-      const minute = parseMinute(m.winlose);
-      const finished = isFinished(m.winlose);
-
-      if (!hasScore){
-        if (start && sameDay(start, now) && minsSinceStart!==null && !finished){
-          if (minsSinceStart <= 90) chips.push(`<span class="chip chip-live"><span class="dot"></span> LIVE</span>`);
-          else chips.push(`<span class="chip chip-wait">Attente score final</span>`);
-        }
-      } else {
-        if (minute!=null){
-          if (start && minsSinceStart!==null && minsSinceStart > 120){
-            chips.push(`<span class="chip chip-wait">Attente score final</span>`);
-          }else{
-            chips.push(`<span class="chip chip-time">${minute}e</span>`);
-          }
-        } else if (finished){
-          const label = String(m.winlose).trim();
-          chips.push(`<span class="chip">${label}</span>`);
-        }
-      }
-      // ⚠️ plus de photo ici : elle est affichée sous les pastilles (colonne droite)
-      return chips.join('');
+    // Classe CSS du badge de score, du point de vue du club (WinLose déjà calculé ainsi côté
+    // scraper/saisie manuelle, voir CLAUDE.md du repo sv-planning-entrainements) : 'win'/'loss'
+    // colorés, tout le reste (Match Nul, Terminé pour un match hors club, minute "23e" en
+    // cours...) au style neutre par défaut du badge (gris).
+    function scoreBadgeClass(winlose){
+      const w=String(winlose||'').trim().toLowerCase();
+      if(w==='victoire') return 'win';
+      if(w==='défaite'||w==='defaite') return 'loss';
+      return '';
     }
 
     function groupByDay(list){
@@ -460,32 +447,29 @@
         groups[k].forEach(m=>{
           const s1 = (m.eq1score!=null && String(m.eq1score).trim()!=='') ? Number(m.eq1score) : null;
           const s2 = (m.eq2score!=null && String(m.eq2score).trim()!=='') ? Number(m.eq2score) : null;
+          const hasScore = (s1!==null && s2!==null);
+          // Zone droite unique et dynamique (demande de Julien, format "scores" style
+          // L'Équipe) : heure tant qu'aucun score n'est encore saisi, score+badge coloré dès
+          // qu'un score existe (en cours ou terminé — un match en cours de saisie a déjà un
+          // score non nul via les steppers, pas besoin de distinguer les deux ici).
+          const rightContent = hasScore
+            ? `<span class="score-badge ${scoreBadgeClass(m.winlose)}">${s1} - ${s2}</span>`
+            : `<span class="match-time">${fmtTime(m._date)}</span>`;
 
           const card=document.createElement('button'); card.type='button'; card.className='match-card';
           card.innerHTML=`
-            <div class="time-col">
-              <div class="time-box">${fmtTime(m._date)}</div>
-              ${m.locked ? `<div class="lock-chip" title="Score confirmé par la FFHB — non modifiable">🔒</div>` : ``}
-            </div>
             <div class="teams">
-              <div class="team-row">
-                <div class="team-name">${(m.equipe1||'').trim()}</div>
-                <div class="team-score">${s1!==null ? s1 : ''}</div>
-              </div>
-              <div class="team-row">
-                <div class="team-name">${(m.equipe2||'').trim()}</div>
-                <div class="team-score">${s2!==null ? s2 : ''}</div>
-              </div>
+              <div class="team-name">${(m.equipe1||'').trim()}</div>
+              <div class="team-name">${(m.equipe2||'').trim()}</div>
               <div class="meta-line">
                 ${(m.categorie||m.genre||m.championnat)?`<span class="meta-cat">${[m.categorie,m.genre,m.championnat].filter(Boolean).join(' ')}</span>`:''}
-              </div>
-              <div class="meta-line">
                 ${(m.ville||m.gymnase)?`<span class="meta-place">${[m.ville,m.gymnase].filter(Boolean).join(' · ')}</span>`:''}
               </div>
             </div>
-            <div class="right">
-              ${rightChipsForMatch(m)}
+            <div class="match-right">
               ${m.photo ? `<span class="thumb-wrap"><img class="thumb" src="${m.photo}" alt="Photo du match"></span>` : ``}
+              ${m.locked ? `<span class="lock-icon" title="Score confirmé par la FFHB — non modifiable">🔒</span>` : ``}
+              ${rightContent}
             </div>`;
           card.addEventListener('click',()=>goToMatch(m.match_id));
           listEl.appendChild(card);
