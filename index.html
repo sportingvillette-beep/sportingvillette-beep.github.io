@@ -7,30 +7,38 @@
   <meta name="color-scheme" content="light dark" />
   <style>
     :root{
-      --brand:#e4362b; --accent:#13b5a6; --deep:#10056b;
-      --bg:#f1f1f1; --card:#ffffff; --text:#0f1522; --muted:#4b5565;
-      --border:#cfd6df; --chip:#f6f8fb; --wait:#8a6200;
-      --ok:#2e7d32; --err:#b00020; --section:#ffffff;
-      --shadow:0 6px 20px rgba(16,21,34,.08);
+      /* Palette (2026-08-21, demande de Julien) : rouge brique = accent unique (remplace
+         l'ancien dégradé brand+accent), beige crème = fond clair, bleu canard = fond sombre,
+         vert olive = badge victoire + texte secondaire, moutarde = badge nul, variante plus
+         sombre/désaturée du rouge brique = badge défaite (distincte de l'accent principal). */
+      --accent:#A83F39; --accent-hover:#973933; --deep:#10056b;
+      --bg:#F4EEDB; --card:#ffffff; --text:#2A525B; --muted:#6B705C;
+      --border:#ddd6c0; --chip:#efe8d2; --wait:#8a6200;
+      --ok:#5b7a4a; --err:#8A3530; --section:#ffffff;
+      --shadow:0 6px 20px rgba(42,82,91,.08);
       /* Liste de matchs compacte (format "scores" style L'Équipe) */
-      --row-border:#e3e7ed;
-      --tab-bg:#eef0f3; --tab-text:#6b7482; --tab-active-bg:var(--brand); --tab-active-text:#ffffff;
-      --time-text:#4b5565;
-      --badge-win-bg:#e3f6ea; --badge-win-text:#1e7e39;
-      --badge-loss-bg:#fde8e8; --badge-loss-text:#b3241c;
-      --badge-draw-bg:#eef0f3; --badge-draw-text:#4b5565;
+      --row-border:#e6dfc7;
+      --tab-bg:#eee6cf; --tab-text:#87806c; --tab-active-bg:var(--accent); --tab-active-text:#ffffff;
+      --time-text:#6B705C;
+      --badge-win-bg:#e6e7db; --badge-win-text:#525640;
+      --badge-loss-bg:#f5e2e0; --badge-loss-text:#8A3530;
+      --badge-draw-bg:#faf1dc; --badge-draw-text:#8c6a1f;
     }
     @media (prefers-color-scheme: dark){
       :root{
-        --bg:#0d1117; --card:#0f141b; --text:#f3f5f8; --muted:#c5ccd6; --border:#2a3748; --chip:#172231; --section:#121926; --ok:#63d39a; --err:#ff6b6b;
-        --row-border:#232e3d;
-        --tab-bg:#161d29; --tab-text:#8b93a0; --tab-active-bg:var(--brand); --tab-active-text:#ffffff;
-        --time-text:#c5ccd6;
-        --badge-win-bg:#123821; --badge-win-text:#7be3a0;
-        --badge-loss-bg:#3a1414; --badge-loss-text:#ff9b9b;
-        --badge-draw-bg:#1c2431; --badge-draw-text:#c5ccd6;
+        --accent:#A83F39; --accent-hover:#bb4a41;
+        --bg:#2A525B; --card:#33606a; --text:#F4EEDB; --muted:#868C73; --border:#3f6871; --chip:#2c545d; --section:#2c545d; --ok:#93b17f; --err:#cf8a85;
+        --row-border:#3c636c;
+        --tab-bg:#254349; --tab-text:#a9b2a0; --tab-active-bg:var(--accent); --tab-active-text:#ffffff;
+        --time-text:#a9b0a0;
+        /* Vert olive et variante du rouge brique éclaircis (~+12-15% de luminosité) pour les
+           badges uniquement, pour rester lisibles sur le fond bleu canard foncé sans être
+           criards — la moustarde (déjà claire) n'a pas besoin du même ajustement. */
+        --badge-win-bg:#333a29; --badge-win-text:#a8ae92;
+        --badge-loss-bg:#3a201e; --badge-loss-text:#cf8a85;
+        --badge-draw-bg:#3a2f14; --badge-draw-text:#e2b95c;
       }
-      input,select,button,textarea{background:#0f141b;color:var(--text)}
+      input,select,button,textarea{background:#33606a;color:var(--text)}
     }
     html,body{height:100%}
     body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -60,7 +68,7 @@
     .teams{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
     .team-name{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
     .meta-line{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
-    .meta-cat{color:var(--accent);font-weight:800;font-size:11.5px}
+    .meta-cat{color:var(--muted);font-weight:800;font-size:11.5px}
     .meta-place{color:var(--muted);font-size:11.5px}
 
     /* Zone droite unique et dynamique : heure (avant match) OU score+badge (en cours/terminé). */
@@ -75,7 +83,8 @@
     .thumb-wrap{display:flex;align-items:center;justify-content:center}
     .thumb-btn{all:unset;cursor:zoom-in}
 
-    .mini{padding:9px 12px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;border:none;font-weight:800}
+    .mini{padding:9px 12px;border-radius:10px;background:var(--accent);color:#fff;border:none;font-weight:800}
+    .mini:hover{background:var(--accent-hover)}
     .back-btn{margin-bottom:10px}
 
     .match-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin:10px 0 8px;padding:12px 14px;border:1px dashed var(--border);border-radius:14px}
@@ -90,19 +99,16 @@
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .row.one{grid-template-columns:1fr}
     .actions{display:grid;gap:8px}
-    button{cursor:pointer;background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;border:none;font-weight:800;border-radius:12px}
+    button{cursor:pointer;background:var(--accent);color:#fff;border:none;font-weight:800;border-radius:12px}
+    button:hover{background:var(--accent-hover)}
     button[disabled]{opacity:.6;cursor:not-allowed}
     .dropzone{border:2px dashed var(--border);border-radius:14px;padding:14px;text-align:center;background:#fff;cursor:pointer}
-    .dropzone.drag{border-color:var(--brand);background:#fff5f5}
+    .dropzone.drag{border-color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent)}
     .dz-title{font-size:14px;font-weight:700;color:var(--text)}
     .muted{color:var(--muted);font-size:12px}
     .msg{min-height:20px}
     .ok{color:var(--ok)} .err{color:var(--err)}
     footer{margin-top:12px;text-align:center}
-
-    .id-row{display:flex;gap:10px}
-    .id-row input{flex:1}
-    .id-row button{flex:0 0 auto}
 
     .stepper{display:flex;align-items:center;gap:10px}
     .step-btn{width:48px;height:48px;flex:0 0 auto;padding:0;font-size:26px;font-weight:900;border-radius:12px;line-height:1}
@@ -146,13 +152,6 @@
         <div class="weekend-tabs" id="weekendTabs" role="tablist" aria-label="Choisir un week-end"></div>
         <div id="matchesMsg" class="muted">Chargement des matchs…</div>
         <div id="daysContainer"></div>
-
-        <label class="id-row-label">Match absent de la liste ?
-          <div class="id-row">
-            <input id="manualMatchId" placeholder="ID match (ex: rencontre-1234567)" autocomplete="off">
-            <button type="button" id="goIdBtn">Ouvrir</button>
-          </div>
-        </label>
       </section>
 
       <!-- PAGE MATCH (mode ?match_id=XXX) : score en direct, commentaire, galerie photo -->
@@ -315,13 +314,6 @@
     const lightbox=document.getElementById('lightbox');
     const lightboxImg=document.getElementById('lightboxImg');
 
-    document.getElementById('goIdBtn').addEventListener('click', ()=>{
-      const id=document.getElementById('manualMatchId').value.trim();
-      if(id) goToMatch(id);
-    });
-    document.getElementById('manualMatchId').addEventListener('keydown', e=>{
-      if(e.key==='Enter'){ e.preventDefault(); document.getElementById('goIdBtn').click(); }
-    });
     document.getElementById('backBtn').addEventListener('click', goToList);
 
     async function loadMatches(){
