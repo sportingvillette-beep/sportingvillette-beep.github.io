@@ -74,6 +74,13 @@
     /* Zone droite unique et dynamique : heure (avant match) OU score+badge (en cours/terminé). */
     .match-right{flex:0 0 auto;display:flex;align-items:center;gap:6px}
     .match-time{color:var(--time-text);font-weight:800;font-size:13px;min-width:44px;text-align:right}
+    /* Indicateurs "en cours"/"attente résultat" (heure de départ dépassée, pas encore de
+       score) — remplacent l'heure dans la même zone dynamique. */
+    .match-live{display:inline-flex;align-items:center;gap:5px;color:var(--accent);font-weight:800;font-size:12px;white-space:nowrap}
+    .live-dot{width:7px;height:7px;border-radius:50%;background:currentColor;position:relative;flex:0 0 auto}
+    .live-dot::after{content:'';position:absolute;inset:0;border-radius:50%;background:currentColor;opacity:.35;animation:live-pulse 1.2s infinite ease-out}
+    @keyframes live-pulse{0%{transform:scale(1)}100%{transform:scale(2.6);opacity:0}}
+    .match-wait{color:var(--muted);font-weight:700;font-size:11.5px;font-style:italic;white-space:nowrap}
     .score-badge{display:inline-block;min-width:46px;text-align:center;font-weight:900;font-size:13px;letter-spacing:.2px;padding:5px 9px;border-radius:8px;background:var(--badge-draw-bg);color:var(--badge-draw-text)}
     .score-badge.win{background:var(--badge-win-bg);color:var(--badge-win-text)}
     .score-badge.loss{background:var(--badge-loss-bg);color:var(--badge-loss-text)}
@@ -288,6 +295,7 @@
     function parseDateTimeFR(ds,ts){const d=parseDateFR(ds); if(!d)return null; const [h='00',m='00']=String(ts||'00:00').split(':'); const dt=new Date(d); dt.setHours(parseInt(h,10)||0,parseInt(m,10)||0,0,0); return dt;}
     function fmtDate(d){return d?d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'}):'';}
     function fmtTime(d){return d?d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';}
+    function sameDay(a,b){return a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
     // Samedi de la semaine contenant d (utilisé comme clé de regroupement/sélection par week-end).
     function saturdayOf(d){const day=d.getDay(); const diff=day===6?0:(day+1); const sat=new Date(d); sat.setHours(0,0,0,0); sat.setDate(sat.getDate()-diff); return sat;}
     function weekendRangeFromSaturday(sat){const start=new Date(sat); start.setHours(0,0,0,0); const end=new Date(start); end.setDate(end.getDate()+1); end.setHours(23,59,59,999); return [start,end];}
@@ -441,12 +449,26 @@
           const s2 = (m.eq2score!=null && String(m.eq2score).trim()!=='') ? Number(m.eq2score) : null;
           const hasScore = (s1!==null && s2!==null);
           // Zone droite unique et dynamique (demande de Julien, format "scores" style
-          // L'Équipe) : heure tant qu'aucun score n'est encore saisi, score+badge coloré dès
-          // qu'un score existe (en cours ou terminé — un match en cours de saisie a déjà un
-          // score non nul via les steppers, pas besoin de distinguer les deux ici).
-          const rightContent = hasScore
-            ? `<span class="score-badge ${scoreBadgeClass(m.winlose)}">${s1} - ${s2}</span>`
-            : `<span class="match-time">${fmtTime(m._date)}</span>`;
+          // L'Équipe) : score+badge coloré dès qu'un score existe (en cours ou terminé — un
+          // match en cours de saisie a déjà un score non nul via les steppers). Tant qu'aucun
+          // score n'est saisi : heure avant le coup d'envoi, puis pastille "LIVE" pulsante une
+          // fois l'heure de départ dépassée (même jour, ≤90 min), puis "Attente résultat" au-delà
+          // de 90 min sans score connu (comportement restauré, retiré par erreur lors de la
+          // refonte compacte du 2026-08-21 — signalé par Julien).
+          let rightContent;
+          if (hasScore){
+            rightContent = `<span class="score-badge ${scoreBadgeClass(m.winlose)}">${s1} - ${s2}</span>`;
+          } else {
+            const now = new Date(), start = m._date;
+            const minsSinceStart = (start && sameDay(start, now) && now > start) ? Math.floor((now-start)/60000) : null;
+            if (minsSinceStart===null){
+              rightContent = `<span class="match-time">${fmtTime(start)}</span>`;
+            } else if (minsSinceStart <= 90){
+              rightContent = `<span class="match-live"><span class="live-dot"></span>LIVE</span>`;
+            } else {
+              rightContent = `<span class="match-wait">Attente résultat</span>`;
+            }
+          }
 
           const card=document.createElement('button'); card.type='button'; card.className='match-card';
           card.innerHTML=`
