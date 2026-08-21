@@ -177,8 +177,9 @@
 
           <label>État du match
             <select id="etat_match" required>
-              <option value="termine" selected>Terminé</option>
+              <option value="pret">Prêt à démarrer</option>
               <option value="en_cours">En cours</option>
+              <option value="termine">Terminé</option>
             </select>
             <span class="muted">Si « En cours », indiquez le temps de jeu.</span>
           </label>
@@ -216,6 +217,7 @@
           <label>Résultat (auto)
             <select id="statut" required style="pointer-events:none;opacity:.95">
               <option value="" disabled selected>— Calculé automatiquement —</option>
+              <option>Prêt à démarrer</option>
               <option>En cours</option>
               <option>Victoire</option>
               <option>Défaite</option>
@@ -231,9 +233,15 @@
 
         <div class="section-block">
           <h3>Commentaire</h3>
+          <label>Ton prénom (ex : Julien, papa de Chloé)
+            <input id="commentAuteur" placeholder="Ton prénom" autocomplete="off">
+          </label>
           <label>Ambiance, fait marquant, remerciements…
             <textarea id="commentaire" rows="3" placeholder="Un mot sur le match (facultatif)"></textarea>
           </label>
+          <div class="actions">
+            <button type="button" id="commentValidateBtn">Valider le commentaire</button>
+          </div>
           <div class="send-status muted" id="commentMsg" role="status" aria-live="polite"></div>
         </div>
 
@@ -513,7 +521,9 @@
     const selTeams=document.getElementById('selTeams');
     const selMeta=document.getElementById('selMeta');
     const commentEl=document.getElementById('commentaire');
+    const commentAuteurEl=document.getElementById('commentAuteur');
     const commentMsg=document.getElementById('commentMsg');
+    const COMMENT_AUTEUR_KEY='svScoreClub_commentAuteur';
     const galleryMsg=document.getElementById('galleryMsg');
     const galleryGrid=document.getElementById('galleryGrid');
     const photoMsg=document.getElementById('photoMsg');
@@ -527,6 +537,10 @@
     // Calcule le résultat UNIQUEMENT si l'état est "Terminé".
     function computeResult(){
       const etat = etatEl.value;
+      if (etat === 'pret'){
+        statutEl.value = 'Prêt à démarrer';
+        return;
+      }
       if (etat === 'en_cours'){
         statutEl.value = 'En cours';
         return;
@@ -566,10 +580,15 @@
       val=Math.max(1, Math.min(90, val));
       tempsEl.value=val; tempsDisplay.textContent=val;
     }
-    document.getElementById('dom_plus').addEventListener('click', ()=>{ setScore('dom',(parseInt(sdEl.value,10)||0)+1); computeResult(); scheduleSend(); });
-    document.getElementById('dom_minus').addEventListener('click', ()=>{ setScore('dom',(parseInt(sdEl.value,10)||0)-1); computeResult(); scheduleSend(); });
-    document.getElementById('ext_plus').addEventListener('click', ()=>{ setScore('ext',(parseInt(seEl.value,10)||0)+1); computeResult(); scheduleSend(); });
-    document.getElementById('ext_minus').addEventListener('click', ()=>{ setScore('ext',(parseInt(seEl.value,10)||0)-1); computeResult(); scheduleSend(); });
+    // Un tap sur un score alors que l'état est "Prêt à démarrer" signifie que le match a
+    // commencé -> bascule automatiquement en "En cours" (démarre aussi le temps de jeu à 1
+    // via toggleTempsByEtat) avant d'appliquer le tap, plutôt que de laisser un score non nul
+    // sous un état "Prêt à démarrer" incohérent.
+    function ensureStarted(){ if(etatEl.value==='pret'){ etatEl.value='en_cours'; toggleTempsByEtat(); } }
+    document.getElementById('dom_plus').addEventListener('click', ()=>{ ensureStarted(); setScore('dom',(parseInt(sdEl.value,10)||0)+1); computeResult(); scheduleSend(); });
+    document.getElementById('dom_minus').addEventListener('click', ()=>{ ensureStarted(); setScore('dom',(parseInt(sdEl.value,10)||0)-1); computeResult(); scheduleSend(); });
+    document.getElementById('ext_plus').addEventListener('click', ()=>{ ensureStarted(); setScore('ext',(parseInt(seEl.value,10)||0)+1); computeResult(); scheduleSend(); });
+    document.getElementById('ext_minus').addEventListener('click', ()=>{ ensureStarted(); setScore('ext',(parseInt(seEl.value,10)||0)-1); computeResult(); scheduleSend(); });
     document.getElementById('temps_plus').addEventListener('click', ()=>{ setTemps((parseInt(tempsEl.value,10)||0)+1); scheduleSend(); });
     document.getElementById('temps_minus').addEventListener('click', ()=>{ setTemps((parseInt(tempsEl.value,10)||1)-1); scheduleSend(); });
 
@@ -624,17 +643,31 @@
         setScore('dom', Number.isFinite(s1)?s1:0);
         setScore('ext', Number.isFinite(s2)?s2:0);
 
+        // État par défaut à l'ouverture : un résultat déjà enregistré (minute "23e" ou
+        // Victoire/Défaite/Match Nul/Terminé) prime toujours. Sinon, pas de "Terminé" par
+        // défaut (piège signalé par Julien) : "Prêt à démarrer" tant que le coup d'envoi n'est
+        // pas passé, "En cours" une fois l'heure de départ dépassée sans rien de saisi.
         const winlose=row[idx[L.winlose]];
         const minuteMatch=winlose && String(winlose).match(/^(\d{1,2})\s*e$/i);
+        const finishedRegex=/(victoire|d[ée]faite|match\s*nul|termine|termin[ée])/i;
         if(minuteMatch){ etatEl.value='en_cours'; statutEl.value='En cours'; toggleTempsByEtat(); setTemps(parseInt(minuteMatch[1],10)); }
-        else { etatEl.value='termine'; computeResult(); toggleTempsByEtat(); }
+        else if(winlose && finishedRegex.test(winlose)){ etatEl.value='termine'; toggleTempsByEtat(); }
+        else{ etatEl.value=(dt && new Date()<dt) ? 'pret' : 'en_cours'; toggleTempsByEtat(); }
 
         const locked=(row[idx[L.scoreSource]]||'').trim().toLowerCase()==='ffhb';
         setLocked(locked);
         document.getElementById('msg').textContent = locked ? '🔒 Score confirmé par la FFHB — non modifiable ici.' : "Le score s'envoie automatiquement à chaque +/-.";
         document.getElementById('msg').className='msg muted';
 
-        commentEl.value = row[idx[L.commentaire]] || '';
+        // Le commentaire est stocké comme un seul champ texte côté sheet ("Auteur : texte" si
+        // un auteur a été renseigné, cf buildCommentText) — on retente de le séparer pour
+        // préremplir les 2 champs à l'édition. Si ça ne matche pas (commentaire déjà existant
+        // avant l'ajout de ce champ, ou sans auteur), tout le texte va dans la zone commentaire
+        // et l'auteur est repris du dernier utilisé sur cet appareil (localStorage).
+        const rawComment = row[idx[L.commentaire]] || '';
+        const splitComment = rawComment.match(/^([^:\n]{1,40}) : ([\s\S]*)$/);
+        if (splitComment){ commentAuteurEl.value = splitComment[1]; commentEl.value = splitComment[2]; }
+        else { commentEl.value = rawComment; commentAuteurEl.value = localStorage.getItem(COMMENT_AUTEUR_KEY) || ''; }
 
         const photoEq=(row[idx[L.photo]]||'').trim();
         currentOfficialUrl = isUrl(photoEq) ? photoEq : '';
@@ -646,22 +679,28 @@
       }
     }
 
-    // --- Commentaire : envoi auto débouncé, indépendant du verrou score (cf Code.gs).
-    let commentTimer=null, commentSending=false, commentPendingResend=false;
-    function scheduleCommentSend(){
-      const id=document.getElementById('match_id').value.trim();
-      if(!id) return;
-      clearTimeout(commentTimer);
-      commentMsg.textContent='Modifié…'; commentMsg.className='msg muted';
-      commentTimer=setTimeout(doSendComment, 600);
+    // --- Commentaire : envoi uniquement sur clic "Valider" (plus d'auto-envoi au repos, sur
+    // demande de Julien — l'auto-envoi partait trop tôt, avant que la personne ait fini de
+    // rédiger). Indépendant du verrou score (cf Code.gs). L'auteur, si renseigné, est
+    // préfixé au texte ("Auteur : texte") — un seul champ Commentaire côté sheet, pas de
+    // colonne dédiée. Mémorisé dans localStorage pour préremplir la prochaine fois sur cet
+    // appareil (pas besoin de retaper son prénom à chaque match).
+    function buildCommentText(){
+      const texte=(commentEl.value||'').trim();
+      const auteur=(commentAuteurEl.value||'').trim();
+      if(!texte) return ''; // "vider" le commentaire reste possible même avec un auteur renseigné
+      return auteur ? `${auteur} : ${texte}` : texte;
     }
+    let commentSending=false, commentPendingResend=false;
     async function doSendComment(){
       const id=document.getElementById('match_id').value.trim();
       if(!id) return;
       if(commentSending){ commentPendingResend=true; return; }
+      const auteur=(commentAuteurEl.value||'').trim();
+      if(auteur) localStorage.setItem(COMMENT_AUTEUR_KEY, auteur);
       const fd=new FormData();
       fd.append('action','add_score'); fd.append('secret', CONFIG.webhookSecret);
-      fd.append('match_id', id); fd.append('commentaire', commentEl.value);
+      fd.append('match_id', id); fd.append('commentaire', buildCommentText());
       commentSending=true; commentMsg.textContent='⏳ Envoi…'; commentMsg.className='msg muted';
       try{
         const res=await fetch(CONFIG.webhookUrl,{method:'POST', body:fd});
@@ -680,7 +719,7 @@
         if(commentPendingResend){ commentPendingResend=false; doSendComment(); }
       }
     }
-    commentEl.addEventListener('input', scheduleCommentSend);
+    document.getElementById('commentValidateBtn').addEventListener('click', doSendComment);
 
     // --- Galerie photo : liste (list_photos), upload (add_photo), sélection officielle (select_photo).
     // Le Web App Apps Script répond parfois avec une latence/erreur transitoire (déjà observé
