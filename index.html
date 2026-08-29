@@ -304,9 +304,17 @@
     function fmtDate(d){return d?d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'long'}):'';}
     function fmtTime(d){return d?d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';}
     function sameDay(a,b){return a&&b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
-    // Samedi de la semaine contenant d (utilisé comme clé de regroupement/sélection par week-end).
-    function saturdayOf(d){const day=d.getDay(); const diff=day===6?0:(day+1); const sat=new Date(d); sat.setHours(0,0,0,0); sat.setDate(sat.getDate()-diff); return sat;}
-    function weekendRangeFromSaturday(sat){const start=new Date(sat); start.setHours(0,0,0,0); const end=new Date(start); end.setDate(end.getDate()+1); end.setHours(23,59,59,999); return [start,end];}
+    // Samedi du week-end auquel rattacher d (clé de regroupement/sélection par week-end) :
+    // le week-end en cours si d est déjà samedi/dimanche, sinon le prochain samedi à venir
+    // (donc un match du lundi au vendredi est rattaché au week-end qui SUIT, pas celui qui
+    // précède). Demande de Julien (2026-08-26) : les rencontres jouées en semaine (ex.
+    // Loisirs) doivent apparaître dans l'onglet du week-end qu'elles précèdent.
+    function saturdayOf(d){const day=d.getDay(); const sat=new Date(d); sat.setHours(0,0,0,0); if(day===6)return sat; if(day===0){sat.setDate(sat.getDate()-1);return sat;} sat.setDate(sat.getDate()+(6-day)); return sat;}
+    // Fenêtre affichée pour un onglet week-end : du lundi (5 jours avant le samedi) au
+    // dimanche soir (lendemain du samedi) — englobe toute la semaine qui précède le week-end,
+    // pas seulement samedi-dimanche, pour les mêmes raisons que saturdayOf() ci-dessus. Le
+    // choix de l'onglet reste basé sur le samedi (99% des matchs sont le week-end).
+    function weekendRangeFromSaturday(sat){const start=new Date(sat); start.setDate(start.getDate()-5); start.setHours(0,0,0,0); const end=new Date(sat); end.setDate(end.getDate()+1); end.setHours(23,59,59,999); return [start,end];}
     // Week-end "de la semaine en cours" = prochain samedi 00:00 au dimanche 23:59 (aujourd'hui inclus si on est déjà sam/dim).
     function nextWeekendRange(now){const day=now.getDay(); const daysToSat=(6-day+7)%7; const start=new Date(now); start.setHours(0,0,0,0); start.setDate(start.getDate()+daysToSat); const end=new Date(start); end.setDate(end.getDate()+1); end.setHours(23,59,59,999); return [start,end];}
     function csvToRows(csv){const rows=[];let cur=[],i=0,f='',q=false;while(i<csv.length){const c=csv[i++]; if(c==='"'){if(q && csv[i]==='"'){f+='"';i++;} else q=!q;} else if(c===',' && !q){cur.push(f);f='';} else if((c==='\n'||c==='\r') && !q){ if(f!==''||cur.length){cur.push(f);rows.push(cur);cur=[];f='';} } else f+=c;} if(f!==''||cur.length){cur.push(f);rows.push(cur);} return rows.filter(r=>r.length&&r.join('').trim()!=='');}
