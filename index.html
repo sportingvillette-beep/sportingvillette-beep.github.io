@@ -435,13 +435,11 @@
         (groups[key] ||= []).push(m);
       }
       Object.values(groups).forEach(arr=>arr.sort((a,b)=>a._date-b._date));
-      const keys=Object.keys(groups).sort((ka,kb)=>{
-        const a=new Date(ka), b=new Date(kb);
-        const rank=d=>d.getDay()===6?1:d.getDay()===0?2:3;
-        const ra=rank(a), rb=rank(b);
-        if(ra!==rb) return ra-rb;
-        return a-b;
-      });
+      // Tri chronologique simple. L'ancien tri forçait samedi/dimanche avant tout autre jour
+      // (pertinent tant que la fenêtre ne contenait QUE samedi-dimanche) — cassait l'ordre
+      // depuis l'élargissement lundi-dimanche (ex. un match du vendredi s'affichait après
+      // celui du samedi suivant). Signalé par Julien, 2026-08-26.
+      const keys=Object.keys(groups).sort((ka,kb)=>new Date(ka)-new Date(kb));
       return {keys,groups};
     }
 
