@@ -156,6 +156,7 @@
       <!-- LISTE DES RENCONTRES (mode par défaut, pas de ?match_id= dans l'URL) -->
       <section id="picker" class="matches">
         <h3>Choisir une rencontre</h3>
+        <div class="weekend-tabs" id="sectionTabs" role="tablist" aria-label="Choisir un périmètre"></div>
         <div class="weekend-tabs" id="weekendTabs" role="tablist" aria-label="Choisir un week-end"></div>
         <div id="matchesMsg" class="muted">Chargement des matchs…</div>
         <div id="daysContainer"></div>
@@ -278,14 +279,23 @@
       webhookUrl:'https://script.google.com/macros/s/AKfycbzA8_vH6hAwZl3aBOxEtL4sKqxi10mhY6Tw0dDRLU-SHszHHui4GXSR04GX8VV15oQC/exec',
       webhookSecret:'wpFt6IaS4QDZCodB',
       gsheetCsvUrl:'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvskuueB25qKj0hbDWjFPomFdhfWRduUsNLp6Kv-za4t4oXcbbLsLrNsjwIt0ZH7C9B75pYBGDJfQu/pub?gid=0&single=true&output=csv',
+      // Sheet "équipes" (une ligne = une équipe du club, colonne Section = le club/entente
+      // porteur) — même source que scraper/scrape_ffhb_club.py (SHEET_CSV_URL, voir CLAUDE.md
+      // du repo sv-planning-entrainements). Sert uniquement à retrouver la Section d'un match
+      // (jointure par Catégorie/Genre/Indice — jamais déduite du nom de l'adversaire, qui peut
+      // être un tout autre nom que l'entente si elle joue sous un "club porteur" FFHB).
+      equipesCsvUrl:'https://docs.google.com/spreadsheets/d/e/2PACX-1vT3RqA-z8ANNaXXsYMgh4ynk8LV4EjOnkAqyThzFQ4TcxIUofmVlWg20wyfw-ZmeDettPCjkCgank_3/pub?output=csv',
       fields:{
         match_id:'Code Gesthand', date:'Date', heure:'Heure',
-        categorie:'Catégorie', genre:'Genre', championnat:'Championnat',
+        categorie:'Catégorie', genre:'Genre', indice:'Index', championnat:'Championnat',
         equipe1:'Eq1', equipe1x:'Eq1X', equipe2:'Eq2', equipe2x:'Eq2X',
         eq1score:'Eq1Score', eq2score:'Eq2Score', winlose:'WinLose',
         gymnase:'Gymnase', ville:'Ville', photo:'PhotoEq', scoreSource:'Score Source',
         commentaire:'Commentaire'
       },
+      // Périmètres proposés par le filtre en haut de la liste (ordre d'affichage) — doit
+      // correspondre exactement aux valeurs de la colonne "Section" de la sheet équipes.
+      sections:['Sporting Villette','Entente Villette Genas','Entente Est Lyonnais','Entente Lyon Est Handball'],
       clubAliases:['Sporting Villette','Villette Genas','Entente Villette Genas','Est Lyonnais','Lyon Est Handball'],
       liveThresholdMin:90,
       maxSizeMB:10
@@ -333,17 +343,49 @@
     const matchesMsg=document.getElementById('matchesMsg');
     const daysContainer=document.getElementById('daysContainer');
     const weekendTabs=document.getElementById('weekendTabs');
+    const sectionTabs=document.getElementById('sectionTabs');
     let allItems=[];
     let selectedSaturday=null;
+    let selectedSection='';  // '' = tous les périmètres
     const lightbox=document.getElementById('lightbox');
     const lightboxImg=document.getElementById('lightboxImg');
 
     document.getElementById('backBtn').addEventListener('click', goToList);
 
+    // Section (club/entente porteur) d'un match, retrouvée par jointure Catégorie/Genre/Indice
+    // contre la sheet "équipes" (colonne Section) — jamais déduite du nom de l'adversaire, qui
+    // peut être un tout autre club "porteur" FFHB que le nom de l'entente elle-même (voir
+    // CLAUDE.md du repo sv-planning-entrainements, piège "club porteur"). Demande de Julien,
+    // 2026-08-31.
+    function stripGenreSuffix(section){ return (section||'').replace(/\s*\([FG]\)\s*$/,'').trim(); }
+    function sectionKey(categorie,genre,indice){ return `${(categorie||'').trim()}|${(genre||'').trim()}|${(indice||'').trim()}`; }
+
+    let _sectionIndex=null;
+    async function loadSectionIndex(){
+      if(_sectionIndex) return _sectionIndex;
+      _sectionIndex=new Map();
+      try{
+        const res=await fetch(CONFIG.equipesCsvUrl,{cache:'no-store'}); if(!res.ok) throw new Error();
+        const csv=await res.text(), rows=csvToRows(csv);
+        const headers=rows.shift().map(h=>h.trim());
+        const idx=Object.fromEntries(headers.map((h,i)=>[h,i]));
+        rows.forEach(r=>{
+          const section=stripGenreSuffix(r[idx['Section']]);
+          const key=sectionKey(r[idx['Categorie']], r[idx['Genre']], r[idx['Indice équipe']]);
+          if(section) _sectionIndex.set(key, section);
+        });
+      }catch{ /* filtre par périmètre indisponible si la sheet équipes ne charge pas, pas bloquant */ }
+      return _sectionIndex;
+    }
+
     async function loadMatches(){
       try{
         matchesMsg.textContent='Chargement…';
-        const res=await fetch(CONFIG.gsheetCsvUrl,{cache:'no-store'}); if(!res.ok) throw new Error();
+        const [res, sectionIndex]=await Promise.all([
+          fetch(CONFIG.gsheetCsvUrl,{cache:'no-store'}),
+          loadSectionIndex(),
+        ]);
+        if(!res.ok) throw new Error();
         const csv=await res.text(), rows=csvToRows(csv);
         const headers=rows.shift().map(h=>h.trim());
         const idx=Object.fromEntries(headers.map((h,i)=>[h.toLowerCase(),i]));
@@ -355,9 +397,11 @@
           const e2=(r[idx[L.equipe2]]||'').trim(), e2x=(r[idx[L.equipe2x]]||'').trim();
           const e1label=(e1+(e1x?` ${e1x}`:'' )).trim(); const e2label=(e2+(e2x?` ${e2x}`:'' )).trim();
           const photo=(r[idx[L.photo]]||'').trim();
+          const categorie=r[idx[L.categorie]], genre=r[idx[L.genre]] || '', indice=r[idx[L.indice]] || '';
           return {
             match_id:r[idx[L.match_id]], date_str:d, heure_str:h, _date:dt,
-            categorie:r[idx[L.categorie]], genre:r[idx[L.genre]] || '',
+            categorie, genre,
+            _section:sectionIndex.get(sectionKey(categorie, genre, indice)) || '',
             championnat:r[idx[L.championnat]],
             equipe1:e1label, equipe2:e2label,
             eq1score:r[idx[L.eq1score]], eq2score:r[idx[L.eq2score]],
@@ -369,9 +413,35 @@
         }).filter(x=>x&&x.match_id);
 
         allItems=items;
-        populateWeekendTabs(items);
+        populateSectionTabs();
+        populateWeekendTabs(filteredItems());
         renderForSelectedWeekend();
       }catch{ matchesMsg.textContent="Impossible de charger la liste des matchs."; }
+    }
+
+    function filteredItems(){
+      return selectedSection ? allItems.filter(m=>m._section===selectedSection) : allItems;
+    }
+
+    // Barre de filtre par périmètre (club/entente), au-dessus des onglets week-end — "Tous les
+    // matchs" par défaut. Rendue une seule fois (les options sont fixes, CONFIG.sections), pas
+    // besoin de la regénérer à chaque loadMatches().
+    function populateSectionTabs(){
+      if(sectionTabs.dataset.built) return;
+      sectionTabs.dataset.built='1';
+      const options=['', ...(CONFIG.sections||[])];
+      sectionTabs.innerHTML=options.map(sec=>{
+        const active = sec===selectedSection ? ' active' : '';
+        return `<button type="button" class="weekend-tab${active}" role="tab" data-section="${sec}">${sec || 'Tous les matchs'}</button>`;
+      }).join('');
+      sectionTabs.querySelectorAll('.weekend-tab').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          selectedSection=btn.dataset.section;
+          sectionTabs.querySelectorAll('.weekend-tab').forEach(b=>b.classList.toggle('active', b===btn));
+          populateWeekendTabs(filteredItems());
+          renderForSelectedWeekend();
+        });
+      });
     }
 
     const MOIS_ABBR_FR=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
@@ -412,7 +482,7 @@
     function renderForSelectedWeekend(){
       if(!selectedSaturday){ matchesMsg.textContent='Aucun match trouvé.'; daysContainer.innerHTML=''; return; }
       const [start,end]=weekendRangeFromSaturday(selectedSaturday);
-      const filtered=allItems.filter(m=>m._date && m._date>=start && m._date<=end).sort((a,b)=>a._date-b._date);
+      const filtered=filteredItems().filter(m=>m._date && m._date>=start && m._date<=end).sort((a,b)=>a._date-b._date);
       renderDays(filtered);
       matchesMsg.textContent = filtered.length ? '' : 'Aucun match ce week-end-là.';
     }
